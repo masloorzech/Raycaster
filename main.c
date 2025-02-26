@@ -101,8 +101,7 @@ void free_screen_buffer(Uint32** buff) {
 }
 
 Uint32** create_textures_buffer() {
-    Uint32** textures;
-    textures = (Uint32**)malloc(TEXTURES_NUMBER * sizeof(Uint32*));
+    Uint32 **textures = (Uint32 **) malloc(TEXTURES_NUMBER * sizeof(Uint32 *));
     if (textures == NULL) {
         return NULL;
     }
@@ -330,7 +329,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    SDL_Window* main_window = SDL_CreateWindow(WINDOW_NAME, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
+    SDL_Window* main_window = SDL_CreateWindow(WINDOW_NAME, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN|SDL_WINDOW_ALLOW_HIGHDPI);
     if (main_window == NULL) {
         printf("SDL_CreateWindow Error: %s\n", SDL_GetError());
         close_libraries();
@@ -347,6 +346,8 @@ int main(int argc, char *argv[]) {
         free_textures_buffer(textures);
         return -1;
     }
+    SDL_Texture *lowResTexture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_TARGET, RENDER_WIDTH, RENDER_HEIGHT);
+
     bool moveForward = false, moveBackward = false;
     bool moveLeft = false, moveRight = false;
 
@@ -369,12 +370,14 @@ int main(int argc, char *argv[]) {
     double h = (double)RENDER_HEIGHT;
 
     double playerAngle = -M_PI / 2;
+    bool paused = false;
     while (run) {
+        if (!paused) {
+            calculate_floor_and_ceiling(h,  dirX ,  dirY,  planeX,  planeY,  playerX,  playerY,  textures, buff);
+            calculate_walls(h, dirX , dirY, planeX,  planeY,  playerX,  playerY,  textures,  buff);
+        }
 
-        calculate_floor_and_ceiling(h,  dirX ,  dirY,  planeX,  planeY,  playerX,  playerY,  textures, buff);
-        calculate_walls(h, dirX , dirY, planeX,  planeY,  playerX,  playerY,  textures,  buff);
-
-        SDL_RenderClear(renderer);
+        SDL_SetRenderTarget(renderer, lowResTexture);
 
         for (int x = 0; x < RENDER_WIDTH; x++) {
             for (int y = 0; y < RENDER_HEIGHT; y++) {
@@ -383,6 +386,13 @@ int main(int argc, char *argv[]) {
                 SDL_RenderDrawPoint(renderer, x, y);
             }
         }
+
+        SDL_SetRenderTarget(renderer, NULL);
+
+        SDL_RenderClear(renderer);
+
+        SDL_Rect destRect = {0,0,SCREEN_WIDTH,SCREEN_HEIGHT};
+        SDL_RenderCopy(renderer, lowResTexture, NULL, &destRect);
 
         SDL_RenderPresent(renderer);
 
@@ -402,41 +412,53 @@ int main(int argc, char *argv[]) {
             if (event.type == SDL_QUIT) {
                 run = false;
             }
-
             if (event.type == SDL_KEYDOWN) {
-                if (event.key.keysym.sym == SDLK_ESCAPE) run = false;
-                if (event.key.keysym.sym == SDLK_w) moveForward = true;
-                if (event.key.keysym.sym == SDLK_s) moveBackward = true;
-                if (event.key.keysym.sym == SDLK_a) moveLeft = true;
-                if (event.key.keysym.sym == SDLK_d) moveRight = true;
+                if (!paused) {
+                    if (event.key.keysym.sym == SDLK_ESCAPE) run = false;
+                    if (event.key.keysym.sym == SDLK_w) moveForward = true;
+                    if (event.key.keysym.sym == SDLK_s) moveBackward = true;
+                    if (event.key.keysym.sym == SDLK_a) moveLeft = true;
+                    if (event.key.keysym.sym == SDLK_d) moveRight = true;
+                }
+                if (event.key.keysym.sym == SDLK_p) {
+                    if (SDL_GetRelativeMouseMode()==SDL_TRUE) {
+                        SDL_SetRelativeMouseMode(SDL_FALSE);
+                        paused = !paused;
+                    }else if (SDL_GetRelativeMouseMode()==SDL_FALSE) {
+                        SDL_SetRelativeMouseMode(SDL_TRUE);
+                        paused = !paused;
+                    }
+                }
             }
             if (event.type == SDL_KEYUP) {
-                if (event.key.keysym.sym == SDLK_w) moveForward = false;
-                if (event.key.keysym.sym == SDLK_s) moveBackward = false;
-                if (event.key.keysym.sym == SDLK_a) moveLeft = false;
-                if (event.key.keysym.sym == SDLK_d) moveRight = false;
+                if (!paused) {
+                    if (event.key.keysym.sym == SDLK_w) moveForward = false;
+                    if (event.key.keysym.sym == SDLK_s) moveBackward = false;
+                    if (event.key.keysym.sym == SDLK_a) moveLeft = false;
+                    if (event.key.keysym.sym == SDLK_d) moveRight = false;
+                }
             }
+            if (!paused) {
+                int mouseX=0, mouseY=0;
+                SDL_GetRelativeMouseState(&mouseX, &mouseY);
 
-            int mouseX, mouseY;
-            SDL_GetRelativeMouseState(&mouseX, &mouseY);
+                double mouseSensitivity = 0.002;  // Zmieniaj tę wartość, aby dostosować czułość obrotu
 
-            // Zmienna kontrolująca czułość obrotu
-            double mouseSensitivity = 0.002;  // Zmieniaj tę wartość, aby dostosować czułość obrotu
+                // Prędkość rotacji na podstawie zmiany pozycji myszy w poziomie
+                playerAngle += mouseX * mouseSensitivity;
 
-            // Prędkość rotacji na podstawie zmiany pozycji myszy w poziomie
-            playerAngle += mouseX * mouseSensitivity;
+                // Zabezpieczenie przed przekroczeniem granic
+                if (playerAngle < -M_PI) playerAngle += 2 * M_PI;
+                if (playerAngle > M_PI) playerAngle -= 2 * M_PI;
 
-            // Zabezpieczenie przed przekroczeniem granic
-            if (playerAngle < -M_PI) playerAngle += 2 * M_PI;
-            if (playerAngle > M_PI) playerAngle -= 2 * M_PI;
+                // Zaktualizuj kierunek
+                dirX = cos(playerAngle);
+                dirY = sin(playerAngle);
 
-            // Zaktualizuj kierunek
-            dirX = cos(playerAngle);
-            dirY = sin(playerAngle);
-
-            // Zaktualizowanie kamery (plane)
-            planeX = cos(playerAngle + M_PI / 2) * 0.66;
-            planeY = sin(playerAngle + M_PI / 2) * 0.66;
+                // Zaktualizowanie kamery (plane)
+                planeX = cos(playerAngle + M_PI / 2) * 0.66;
+                planeY = sin(playerAngle + M_PI / 2) * 0.66;
+            }
         }
 
         if (moveForward) {
