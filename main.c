@@ -1,30 +1,54 @@
+#include <math.h>
 #include <stdio.h>
 #include <SDL.h>
 #include <stdbool.h>
-#include <math.h>
 
-#define SCALE_FACTOR 1.5
 
-#define SCREEN_WIDTH (640 * SCALE_FACTOR)
-#define SCREEN_HEIGHT (480 * SCALE_FACTOR)
+#define SCREEN_WIDTH 800
+#define SCREEN_HEIGHT 600
 #define WINDOW_NAME "SIMPLE RAYCATER GAME"
 
+#define MAP_WIDTH 24
+#define MAP_HEIGHT 24
+
+#define TEXTURES_NUMBER 64
+#define TEXTURE_WIDTH 64
+#define TEXTURE_HEIGHT 64
 
 
-#define MAP_WIDTH 9
-#define MAP_HEIGHT 9
 
 uint8_t map[MAP_HEIGHT][MAP_WIDTH] = {
-    {1, 1, 1, 1, 1, 1, 1, 1, 1},
-    {1, 0, 0, 0, 1, 0, 0, 0, 1},
-    {1, 0, 0, 0, 1, 0, 0, 0, 1},
-    {1, 0, 0, 0, 1, 0, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 0, 0, 0, 1, 1, 1, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1}
+    {4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,7,7,7,7,7,7,7,7},
+  {4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,0,0,0,0,0,0,7},
+  {4,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7},
+  {4,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7},
+  {4,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,7,0,0,0,0,0,0,7},
+  {4,0,4,0,0,0,0,5,5,5,5,5,5,5,5,5,7,7,0,7,7,7,7,7},
+  {4,0,5,0,0,0,0,5,0,5,0,5,0,5,0,5,7,0,0,0,7,7,7,1},
+  {4,0,6,0,0,0,0,5,0,0,0,0,0,0,0,5,7,0,0,0,0,0,0,8},
+  {4,0,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,7,7,1},
+  {4,0,8,0,0,0,0,5,0,0,0,0,0,0,0,5,7,0,0,0,0,0,0,8},
+  {4,0,0,0,0,0,0,5,0,0,0,0,0,0,0,5,7,0,0,0,7,7,7,1},
+  {4,0,0,0,0,0,0,5,5,5,5,0,5,5,5,5,7,7,7,7,7,7,7,1},
+  {6,6,6,6,6,6,6,6,6,6,6,0,6,6,6,6,6,6,6,6,6,6,6,6},
+  {8,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4},
+  {6,6,6,6,6,6,0,6,6,6,6,0,6,6,6,6,6,6,6,6,6,6,6,6},
+  {4,4,4,4,4,4,0,4,4,4,6,0,6,2,2,2,2,2,2,2,3,3,3,3},
+  {4,0,0,0,0,0,0,0,0,4,6,0,6,2,0,0,0,0,0,2,0,0,0,2},
+  {4,0,0,0,0,0,0,0,0,0,0,0,6,2,0,0,5,0,0,2,0,0,0,2},
+  {4,0,0,0,0,0,0,0,0,4,6,0,6,2,0,0,0,0,0,2,2,0,2,2},
+  {4,0,6,0,6,0,0,0,0,4,6,0,0,0,0,0,5,0,0,0,0,0,0,2},
+  {4,0,0,5,0,0,0,0,0,4,6,0,6,2,0,0,0,0,0,2,2,0,2,2},
+  {4,0,6,0,6,0,0,0,0,4,6,0,6,2,0,0,5,0,0,2,0,0,0,2},
+  {4,0,0,0,0,0,0,0,0,4,6,0,6,2,0,0,0,0,0,2,0,0,0,2},
+  {4,4,4,4,4,4,4,4,4,4,1,1,1,2,2,2,2,2,2,3,3,3,3,3}
 };
+
+void swap(uint32_t* a, uint32_t* b) {
+    uint32_t temp = *a;
+    *a = *b;
+    *b = temp;
+}
 
 int main(int argc, char *argv[]) {
     if (SDL_Init(SDL_INIT_EVERYTHING)!=0) {
@@ -65,20 +89,45 @@ int main(int argc, char *argv[]) {
 
     double playerAngle = -M_PI / 2;  // Początkowy kąt - patrzymy na lewo (90° w lewo od osi X)
 
+    Uint32 (*buff)[SCREEN_WIDTH] = malloc(SCREEN_HEIGHT * SCREEN_WIDTH * sizeof(Uint32));
+    Uint32 (*textures)[TEXTURE_WIDTH * TEXTURE_HEIGHT] = malloc(TEXTURES_NUMBER * TEXTURE_WIDTH * TEXTURE_HEIGHT * sizeof(Uint32));
+
+    if (!buff || !textures) {
+        printf("Memory allocation failed\n");
+        return -1; // Handle allocation failure
+    }
+    for (int x = 0; x < TEXTURE_WIDTH; x++) {
+        for (int y = 0; y < TEXTURE_HEIGHT; y++) {
+            int xorcolor = (x * 256 / TEXTURE_WIDTH) ^ (y * 256 / TEXTURE_HEIGHT);
+            int ycolor = y * 256 / TEXTURE_HEIGHT;
+            int xycolor = y * 128 / TEXTURE_HEIGHT + x * 128 / TEXTURE_WIDTH;
+
+            textures[0][TEXTURE_WIDTH * y + x] = 65536 * 254 * (x != y && x != TEXTURE_WIDTH - y); // Flat red texture with black cross
+            textures[1][TEXTURE_WIDTH * y + x] = xycolor + 256 * xycolor + 65536 * xycolor; // Sloped greyscale
+            textures[2][TEXTURE_WIDTH * y + x] = 256 * xycolor + 65536 * xycolor; // Sloped yellow gradient
+            textures[3][TEXTURE_WIDTH * y + x] = xorcolor + 256 * xorcolor + 65536 * xorcolor; // XOR greyscale
+            textures[4][TEXTURE_WIDTH * y + x] = 256 * xorcolor; // XOR green
+            textures[5][TEXTURE_WIDTH * y + x] = 65536 * 192 * (x % 16 && y % 16); // Red bricks
+            textures[6][TEXTURE_WIDTH * y + x] = 65536 * ycolor; // Red gradient
+            textures[7][TEXTURE_WIDTH * y + x] = 128 + 256 * 128 + 65536 * 128; // Flat grey texture
+        }
+    }
+
     bool moveForward = false, moveBackward = false;
+    bool moveLeft = false, moveRight = false;
     while (run) {
 
 
         SDL_RenderClear(renderer);
         // Wypełnienie sufitu (górna połowa ekranu)
         SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255); // Szary sufit
-        SDL_Rect ceiling = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT / 2};
-        SDL_RenderFillRect(renderer, &ceiling);
+        SDL_Rect ceiling_rect = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT / 2};
+        SDL_RenderFillRect(renderer, &ceiling_rect);
 
         // Wypełnienie podłogi (dolna połowa ekranu)
         SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255); // Ciemniejsza podłoga
-        SDL_Rect floor = {0, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT / 2};
-        SDL_RenderFillRect(renderer, &floor);
+        SDL_Rect floor_rect = {0, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT / 2};
+        SDL_RenderFillRect(renderer, &floor_rect);
 
         for (int x = 0; x < SCREEN_WIDTH; x++) {
 
@@ -92,8 +141,8 @@ int main(int argc, char *argv[]) {
             double sideDistX =0;
             double sideDistY =0;
 
-            double deltaDistX = (rayDirX == 0) ? 1e30 : fabs(1.0 / rayDirX);
-            double deltaDistY = (rayDirY == 0) ? 1e30 : fabs(1.0 / rayDirY);
+            double deltaDistX = (rayDirX == 0) ? 1e30 : fabs(1 / rayDirX);
+            double deltaDistY = (rayDirY == 0) ? 1e30 : fabs(1 / rayDirY);
 
             double perpWallDist=0;
             int stepX = 0;
@@ -132,42 +181,68 @@ int main(int argc, char *argv[]) {
                     hit = 1;
                 }
             }
+
             if (side == 0) {
                 perpWallDist = sideDistX - deltaDistX;
             }else {
                 perpWallDist = sideDistY - deltaDistY;
             }
             int lineHeight = (int)(h/perpWallDist);
-            int drawStart = -lineHeight/2 + h/2;
+            int drawStart = (int)(-lineHeight/2.0 + h/2.0);
             if (drawStart < 0) {
                 drawStart = 0;
             }
-            int drawEnd = lineHeight/2 + h/2;
+            int drawEnd = (int)(lineHeight/2.0 + h/2.0);
             if (drawEnd >= h) {
-                drawEnd = h-1;
+                drawEnd = (int)(h-1.0);
             }
-            SDL_Color color;
-            switch (map[mapX][mapY]) {
-                case 1:
-                    color.r = 255;
-                    color.g = 0;
-                    color.b = 0;
-                    break;
-                default:
-                    color.r = 255;
-                    color.g = 255;
-                    color.b = 0;
-                    break;
+
+            int texNum = map[mapX][mapY]-1;
+
+            double wallX =0;
+            if (side == 0) {
+                wallX = playerY + perpWallDist * rayDirY;
+            }else {
+                wallX = playerX + perpWallDist * rayDirX;
             }
-            if (side == 1) {
-                color.r /=2;
-                color.g /= 2;
-                color.b /= 2;
+
+            wallX -= floor(wallX);
+
+            int texX = (int)(wallX * (double)TEXTURE_WIDTH);
+            if (side == 0 && rayDirX > 0) {
+                texX = TEXTURE_WIDTH - texX-1;
             }
-            SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, 255);
-            SDL_RenderDrawLine(renderer, x, drawStart, x, drawEnd);
+            if (side == 1 && rayDirY < 0) {
+                texX = TEXTURE_WIDTH - texX-1;
+            }
+
+            double step = 1.0 * TEXTURE_WIDTH / lineHeight;
+
+            double texPos = (drawStart - h/2.0 + lineHeight/2.0) * step;
+            for (int y = drawStart; y < drawEnd; y++) {
+                int texY = (int)texPos & (TEXTURE_HEIGHT - 1);
+                texPos+=step;
+                Uint32 color = textures[texNum][TEXTURE_HEIGHT * texY + texX];
+                if (side ==1) {
+                    color = (color >> 1) & 8355711;
+                }
+                buff[y][x] = color;
+            }
+
+            for (int y = drawStart; y < drawEnd; y++) {
+                uint32_t color = buff[y][x];
+                SDL_SetRenderDrawColor(renderer, (color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF, 255);
+                SDL_RenderDrawPoint(renderer, x, y);
+            }
         }
+
         SDL_RenderPresent(renderer);
+
+        for (int i = 0; i < SCREEN_HEIGHT; i++) {
+            for (int j = 0; j < SCREEN_WIDTH; j++) {
+                buff[i][j] = 0;
+            }
+        }
 
         oldTime = time;
         time = SDL_GetTicks();
@@ -184,10 +259,14 @@ int main(int argc, char *argv[]) {
                 if (event.key.keysym.sym == SDLK_ESCAPE) run = false;
                 if (event.key.keysym.sym == SDLK_w) moveForward = true;
                 if (event.key.keysym.sym == SDLK_s) moveBackward = true;
+                if (event.key.keysym.sym == SDLK_a) moveLeft = true;
+                if (event.key.keysym.sym == SDLK_d) moveRight = true;
             }
             if (event.type == SDL_KEYUP) {
                 if (event.key.keysym.sym == SDLK_w) moveForward = false;
                 if (event.key.keysym.sym == SDLK_s) moveBackward = false;
+                if (event.key.keysym.sym == SDLK_a) moveLeft = false;
+                if (event.key.keysym.sym == SDLK_d) moveRight = false;
             }
 
             int mouseX, mouseY;
@@ -222,7 +301,6 @@ int main(int argc, char *argv[]) {
             }
 
         }
-
         if (moveBackward) {
             if (map[(int)(playerX - dirX * moveSpeed)][(int)playerY] == 0) {
                 playerX -= dirX * moveSpeed;
@@ -231,9 +309,28 @@ int main(int argc, char *argv[]) {
                 playerY -= dirY * moveSpeed;
             }
         }
+        if (moveLeft) {
+            if (map[(int)(playerX - planeX * moveSpeed)][(int)playerY] == 0) {
+                playerX -= planeX * moveSpeed;
+            }
+            if (map[(int)playerX][(int)(playerY - planeY * moveSpeed)] == 0) {
+                playerY -= planeY * moveSpeed;
+            }
+        }
+
+        if (moveRight) {
+            if (map[(int)(playerX + planeX * moveSpeed)][(int)playerY] == 0) {
+                playerX += planeX * moveSpeed;
+            }
+            if (map[(int)playerX][(int)(playerY + planeY * moveSpeed)] == 0) {
+                playerY += planeY * moveSpeed;
+            }
+        }
     }
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(main_window);
     SDL_Quit();
+    free(buff);
+    free(textures);
     return 0;
 }
