@@ -72,6 +72,26 @@ int load_texture(const char* file_path, Uint32* texture) {
     return 0;
 }
 
+Uint32** create_textures_buffer() {
+    Uint32** buff = (Uint32**)malloc(SCREEN_HEIGHT * sizeof(Uint32*));
+    if (!buff) {
+        printf("Błąd alokacji pamięci!\n");
+        return NULL;
+    }
+    for (int i = 0; i < SCREEN_HEIGHT; i++) {
+        buff[i] = (Uint32*)malloc(SCREEN_WIDTH * sizeof(Uint32));
+        if (!buff[i]) {
+            printf("Błąd alokacji pamięci dla wiersza %d!\n", i);
+            for (int j = 0; j < i; j++) {
+                free(buff[j]);
+            }
+            free(buff);
+            return NULL;
+        }
+    }
+    return buff;
+}
+
 
 int main(int argc, char *argv[]) {
     if (SDL_Init(SDL_INIT_EVERYTHING)!=0) {
@@ -107,22 +127,10 @@ int main(int argc, char *argv[]) {
 
     double playerAngle = -M_PI / 2;  // Początkowy kąt - patrzymy na lewo (90° w lewo od osi X)
 
-    Uint32** buff = (Uint32**)malloc(SCREEN_HEIGHT * sizeof(Uint32*));
+    Uint32** buff = create_textures_buffer();
     if (!buff) {
-        printf("Błąd alokacji pamięci!\n");
-        return -1;
-    }
 
-    for (int i = 0; i < SCREEN_HEIGHT; i++) {
-        buff[i] = (Uint32*)malloc(SCREEN_WIDTH * sizeof(Uint32));
-        if (!buff[i]) {
-            printf("Błąd alokacji pamięci dla wiersza %d!\n", i);
-            for (int j = 0; j < i; j++) {
-                free(buff[j]);
-            }
-            free(buff);
-            return -1;
-        }
+        return -1;
     }
 
     Uint32** textures;
