@@ -1,47 +1,46 @@
 #include <math.h>
 #include <stdio.h>
 #include <SDL.h>
+#include <SDL_image.h>
 #include <stdbool.h>
 
 
-#define SCREEN_WIDTH 800
-#define SCREEN_HEIGHT 600
+#define SCREEN_WIDTH 1024
+#define SCREEN_HEIGHT 720
 #define WINDOW_NAME "SIMPLE RAYCATER GAME"
 
-#define MAP_WIDTH 24
-#define MAP_HEIGHT 24
+#define MAP_WIDTH 12
+#define MAP_HEIGHT 12
 
-#define TEXTURES_NUMBER 64
+#define TEXTURES_NUMBER 11
 #define TEXTURE_WIDTH 64
 #define TEXTURE_HEIGHT 64
 
-
+//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/barrel.png", //0
+//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/bluestone.png", //1
+//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/colorstone.png", //2
+//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/eagle.png", //3
+//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/greenlight.png", //4
+//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/greystone.png", //5
+//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/mossy.png", //6
+//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/pillar.png", //7
+//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/purplestone.png", //8
+//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/redbrick.png", //9
+//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/wood.png" //10
 
 uint8_t map[MAP_HEIGHT][MAP_WIDTH] = {
-    {4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,7,7,7,7,7,7,7,7},
-  {4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,0,0,0,0,0,0,7},
-  {4,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7},
-  {4,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7},
-  {4,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,7,0,0,0,0,0,0,7},
-  {4,0,4,0,0,0,0,5,5,5,5,5,5,5,5,5,7,7,0,7,7,7,7,7},
-  {4,0,5,0,0,0,0,5,0,5,0,5,0,5,0,5,7,0,0,0,7,7,7,1},
-  {4,0,6,0,0,0,0,5,0,0,0,0,0,0,0,5,7,0,0,0,0,0,0,8},
-  {4,0,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,7,7,1},
-  {4,0,8,0,0,0,0,5,0,0,0,0,0,0,0,5,7,0,0,0,0,0,0,8},
-  {4,0,0,0,0,0,0,5,0,0,0,0,0,0,0,5,7,0,0,0,7,7,7,1},
-  {4,0,0,0,0,0,0,5,5,5,5,0,5,5,5,5,7,7,7,7,7,7,7,1},
-  {6,6,6,6,6,6,6,6,6,6,6,0,6,6,6,6,6,6,6,6,6,6,6,6},
-  {8,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4},
-  {6,6,6,6,6,6,0,6,6,6,6,0,6,6,6,6,6,6,6,6,6,6,6,6},
-  {4,4,4,4,4,4,0,4,4,4,6,0,6,2,2,2,2,2,2,2,3,3,3,3},
-  {4,0,0,0,0,0,0,0,0,4,6,0,6,2,0,0,0,0,0,2,0,0,0,2},
-  {4,0,0,0,0,0,0,0,0,0,0,0,6,2,0,0,5,0,0,2,0,0,0,2},
-  {4,0,0,0,0,0,0,0,0,4,6,0,6,2,0,0,0,0,0,2,2,0,2,2},
-  {4,0,6,0,6,0,0,0,0,4,6,0,0,0,0,0,5,0,0,0,0,0,0,2},
-  {4,0,0,5,0,0,0,0,0,4,6,0,6,2,0,0,0,0,0,2,2,0,2,2},
-  {4,0,6,0,6,0,0,0,0,4,6,0,6,2,0,0,5,0,0,2,0,0,0,2},
-  {4,0,0,0,0,0,0,0,0,4,6,0,6,2,0,0,0,0,0,2,0,0,0,2},
-  {4,4,4,4,4,4,4,4,4,4,1,1,1,2,2,2,2,2,2,3,3,3,3,3}
+{5,5,5,5,5,5,5,5,5,5,5,5},
+{5,0,10,0,0,0,0,0,0,0,0,5},
+{5,0,10,10,10,10,10,0,0,0,0,5},
+{5,0,10,0,0,0,0,0,0,0,0,5},
+{6,0,10,0,0,0,0,0,0,0,0,5},
+{6,0,0,0,0,0,5,5,5,5,5,5},
+{6,0,0,0,0,0,0,0,0,0,0,5},
+{6,0,0,0,0,0,9,9,9,9,9,9},
+{5,0,0,0,0,0,9,0,0,9,9,9},
+{5,0,0,0,0,0,0,0,0,3,9,9},
+{5,0,0,0,0,0,9,0,0,9,9,9},
+{5,5,5,5,5,5,9,9,9,9,9,9}
 };
 
 void swap(uint32_t* a, uint32_t* b) {
@@ -50,11 +49,51 @@ void swap(uint32_t* a, uint32_t* b) {
     *b = temp;
 }
 
+
+int load_texture(const char* file_path, Uint32* texture) {
+    // Załaduj obrazek PNG jako SDL_Surface
+    SDL_Surface* surface = IMG_Load(file_path);
+    if (!surface) {
+        printf("Nie udało się wczytać obrazka: %s\n", IMG_GetError());
+        return -1; // Błąd wczytywania obrazu
+    }
+
+    if (surface->w != TEXTURE_WIDTH || surface->h != TEXTURE_HEIGHT) {
+        printf("Obrazek ma inne wymiary niż oczekiwane!\n");
+        SDL_FreeSurface(surface);
+        return -1; // Błąd, wymiary się nie zgadzają
+    }
+
+    SDL_Surface* converted_surface = SDL_ConvertSurfaceFormat(surface, SDL_PIXELFORMAT_ARGB8888, 0);
+    if (!converted_surface) {
+        printf("Nie udało się przekonwertować powierzchni: %s\n", SDL_GetError());
+        SDL_FreeSurface(surface);
+        return -1;
+    }
+
+    // Skopiuj piksele do tablicy texture
+    Uint32* pixels = (Uint32*)converted_surface->pixels;
+    for (int i = 0; i < TEXTURE_WIDTH * TEXTURE_HEIGHT; i++) {
+        texture[i] = pixels[i];
+    }
+
+    SDL_FreeSurface(converted_surface);
+    SDL_FreeSurface(surface);
+    return 0;
+}
+
+
 int main(int argc, char *argv[]) {
     if (SDL_Init(SDL_INIT_EVERYTHING)!=0) {
         printf("SDL_Init Error: %s\n", SDL_GetError());
         return -1;
     }
+
+    if (IMG_Init(IMG_INIT_PNG) != IMG_INIT_PNG) {
+        printf("SDL_image could not initialize! SDL_image Error: %s\n", IMG_GetError());
+        return -1;
+    }
+
     SDL_SetRelativeMouseMode(SDL_TRUE);
 
     SDL_Window* main_window = SDL_CreateWindow(WINDOW_NAME, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
@@ -89,34 +128,79 @@ int main(int argc, char *argv[]) {
 
     double playerAngle = -M_PI / 2;  // Początkowy kąt - patrzymy na lewo (90° w lewo od osi X)
 
-    Uint32 (*buff)[SCREEN_WIDTH] = malloc(SCREEN_HEIGHT * SCREEN_WIDTH * sizeof(Uint32));
-    Uint32 (*textures)[TEXTURE_WIDTH * TEXTURE_HEIGHT] = malloc(TEXTURES_NUMBER * TEXTURE_WIDTH * TEXTURE_HEIGHT * sizeof(Uint32));
-
-    if (!buff || !textures) {
-        printf("Memory allocation failed\n");
-        return -1; // Handle allocation failure
+    Uint32** buff = (Uint32**)malloc(SCREEN_HEIGHT * sizeof(Uint32*));
+    if (!buff) {
+        printf("Błąd alokacji pamięci!\n");
+        return -1;  // lub inna obsługa błędu
     }
-    for (int x = 0; x < TEXTURE_WIDTH; x++) {
-        for (int y = 0; y < TEXTURE_HEIGHT; y++) {
-            int xorcolor = (x * 256 / TEXTURE_WIDTH) ^ (y * 256 / TEXTURE_HEIGHT);
-            int ycolor = y * 256 / TEXTURE_HEIGHT;
-            int xycolor = y * 128 / TEXTURE_HEIGHT + x * 128 / TEXTURE_WIDTH;
 
-            textures[0][TEXTURE_WIDTH * y + x] = 65536 * 254 * (x != y && x != TEXTURE_WIDTH - y); // Flat red texture with black cross
-            textures[1][TEXTURE_WIDTH * y + x] = xycolor + 256 * xycolor + 65536 * xycolor; // Sloped greyscale
-            textures[2][TEXTURE_WIDTH * y + x] = 256 * xycolor + 65536 * xycolor; // Sloped yellow gradient
-            textures[3][TEXTURE_WIDTH * y + x] = xorcolor + 256 * xorcolor + 65536 * xorcolor; // XOR greyscale
-            textures[4][TEXTURE_WIDTH * y + x] = 256 * xorcolor; // XOR green
-            textures[5][TEXTURE_WIDTH * y + x] = 65536 * 192 * (x % 16 && y % 16); // Red bricks
-            textures[6][TEXTURE_WIDTH * y + x] = 65536 * ycolor; // Red gradient
-            textures[7][TEXTURE_WIDTH * y + x] = 128 + 256 * 128 + 65536 * 128; // Flat grey texture
+    for (int i = 0; i < SCREEN_HEIGHT; i++) {
+        buff[i] = (Uint32*)malloc(SCREEN_WIDTH * sizeof(Uint32));
+        if (!buff[i]) {
+            printf("Błąd alokacji pamięci dla wiersza %d!\n", i);
+
+            // Zwolnienie pamięci w przypadku błędu
+            for (int j = 0; j < i; j++) {
+                free(buff[j]);
+            }
+            free(buff);
+            return -1;  // lub inna obsługa błędu
+        }
+    }
+    Uint32** textures;
+
+    textures = (Uint32**)malloc(TEXTURES_NUMBER * sizeof(Uint32*));
+    if (textures == NULL) {
+        printf("Błąd alokacji pamięci!\n");
+        for (int i = 0; i < SCREEN_HEIGHT; i++) {
+            free(buff[i]);
+        }
+        free(buff);
+        exit(1);
+    }
+
+    for (int i = 0; i < TEXTURES_NUMBER; i++) {
+        textures[i] = (Uint32*)calloc(TEXTURE_WIDTH * TEXTURE_HEIGHT ,sizeof(Uint32));
+        if (textures[i] == NULL) {
+            printf("Błąd alokacji pamięci dla tekstury %d!\n", i);
+            for (int k = 0; k < SCREEN_HEIGHT; k++) {
+                free(buff[i]);
+            }
+            free(buff);
+            exit(1);
+        }
+    }
+
+    const char* file_paths[TEXTURES_NUMBER] = {
+        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/barrel.png", //0
+        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/bluestone.png", //1
+        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/colorstone.png", //2
+        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/eagle.png", //3
+        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/greenlight.png", //4
+        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/greystone.png", //5
+        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/mossy.png", //6
+        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/pillar.png", //7
+        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/purplestone.png", //8
+        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/redbrick.png", //9
+        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/wood.png" //10
+    };
+
+    for (int i = 0; i < TEXTURES_NUMBER; i++) {
+        if (load_texture(file_paths[i], textures[i]) == -1) {
+            printf("Nie udało się wczytać obrazka: %s\n", file_paths[i]);
+            for (int j = 0; j <= i; j++) {
+                free(textures[j]);
+            }
+            free(textures);
+            IMG_Quit();
+            SDL_Quit();
+            return -1;
         }
     }
 
     bool moveForward = false, moveBackward = false;
     bool moveLeft = false, moveRight = false;
     while (run) {
-
 
         SDL_RenderClear(renderer);
         // Wypełnienie sufitu (górna połowa ekranu)
@@ -197,7 +281,7 @@ int main(int argc, char *argv[]) {
                 drawEnd = (int)(h-1.0);
             }
 
-            int texNum = map[mapX][mapY]-1;
+            int texNum = map[mapX][mapY];
 
             double wallX =0;
             if (side == 0) {
@@ -330,7 +414,15 @@ int main(int argc, char *argv[]) {
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(main_window);
     SDL_Quit();
-    free(buff);
+    IMG_Quit();
+
+    for (int i = 0; i < TEXTURES_NUMBER; i++) {
+        free(textures[i]);
+    }
     free(textures);
+    for (int i = 0; i < SCREEN_HEIGHT; i++) {
+        free(buff[i]);
+    }
+    free(buff);
     return 0;
 }

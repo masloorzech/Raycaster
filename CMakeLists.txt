@@ -12,4 +12,4 @@ link_directories(${SDL2_PATH}/lib)
 
 add_executable(Raycaster main.c)
 
-target_link_libraries(Raycaster mingw32 SDL2main SDL2)
+target_link_libraries(Raycaster mingw32 SDL2main SDL2 SDL2_image)
