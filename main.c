@@ -1,36 +1,99 @@
+#include <math.h>
 #include <stdio.h>
 #include <SDL.h>
+#include <SDL_image.h>
 #include <stdbool.h>
-#include <math.h>
 
-#define SCALE_FACTOR 1.5
 
-#define SCREEN_WIDTH (640 * SCALE_FACTOR)
-#define SCREEN_HEIGHT (480 * SCALE_FACTOR)
+#define SCREEN_WIDTH 1024
+#define SCREEN_HEIGHT 720
 #define WINDOW_NAME "SIMPLE RAYCATER GAME"
 
+#define MAP_WIDTH 12
+#define MAP_HEIGHT 12
 
+#define TEXTURES_NUMBER 11
+#define TEXTURE_WIDTH 64
+#define TEXTURE_HEIGHT 64
 
-#define MAP_WIDTH 9
-#define MAP_HEIGHT 9
+//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/barrel.png", //0
+//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/bluestone.png", //1
+//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/colorstone.png", //2
+//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/eagle.png", //3
+//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/greenlight.png", //4
+//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/greystone.png", //5
+//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/mossy.png", //6
+//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/pillar.png", //7
+//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/purplestone.png", //8
+//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/redbrick.png", //9
+//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/wood.png" //10
 
 uint8_t map[MAP_HEIGHT][MAP_WIDTH] = {
-    {1, 1, 1, 1, 1, 1, 1, 1, 1},
-    {1, 0, 0, 0, 1, 0, 0, 0, 1},
-    {1, 0, 0, 0, 1, 0, 0, 0, 1},
-    {1, 0, 0, 0, 1, 0, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 0, 0, 0, 1, 1, 1, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1}
+{5,5,5,5,5,5,5,5,5,5,5,5},
+{5,0,10,0,0,0,0,0,0,0,0,5},
+{5,0,10,10,10,10,10,0,0,0,0,5},
+{5,0,10,0,0,0,0,0,0,0,0,5},
+{6,0,10,0,0,0,0,0,0,0,0,5},
+{6,0,0,0,0,0,5,5,5,5,5,5},
+{6,0,0,0,0,0,0,0,0,0,0,5},
+{6,0,0,0,0,0,9,9,9,9,9,9},
+{5,0,0,0,0,0,9,0,0,9,9,9},
+{5,0,0,0,0,0,0,0,0,3,9,9},
+{5,0,0,0,0,0,9,0,0,9,9,9},
+{5,5,5,5,5,5,9,9,9,9,9,9}
 };
+
+void swap(uint32_t* a, uint32_t* b) {
+    uint32_t temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+
+int load_texture(const char* file_path, Uint32* texture) {
+    // Załaduj obrazek PNG jako SDL_Surface
+    SDL_Surface* surface = IMG_Load(file_path);
+    if (!surface) {
+        printf("Nie udało się wczytać obrazka: %s\n", IMG_GetError());
+        return -1; // Błąd wczytywania obrazu
+    }
+
+    if (surface->w != TEXTURE_WIDTH || surface->h != TEXTURE_HEIGHT) {
+        printf("Obrazek ma inne wymiary niż oczekiwane!\n");
+        SDL_FreeSurface(surface);
+        return -1; // Błąd, wymiary się nie zgadzają
+    }
+
+    SDL_Surface* converted_surface = SDL_ConvertSurfaceFormat(surface, SDL_PIXELFORMAT_ARGB8888, 0);
+    if (!converted_surface) {
+        printf("Nie udało się przekonwertować powierzchni: %s\n", SDL_GetError());
+        SDL_FreeSurface(surface);
+        return -1;
+    }
+
+    // Skopiuj piksele do tablicy texture
+    Uint32* pixels = (Uint32*)converted_surface->pixels;
+    for (int i = 0; i < TEXTURE_WIDTH * TEXTURE_HEIGHT; i++) {
+        texture[i] = pixels[i];
+    }
+
+    SDL_FreeSurface(converted_surface);
+    SDL_FreeSurface(surface);
+    return 0;
+}
+
 
 int main(int argc, char *argv[]) {
     if (SDL_Init(SDL_INIT_EVERYTHING)!=0) {
         printf("SDL_Init Error: %s\n", SDL_GetError());
         return -1;
     }
+
+    if (IMG_Init(IMG_INIT_PNG) != IMG_INIT_PNG) {
+        printf("SDL_image could not initialize! SDL_image Error: %s\n", IMG_GetError());
+        return -1;
+    }
+
     SDL_SetRelativeMouseMode(SDL_TRUE);
 
     SDL_Window* main_window = SDL_CreateWindow(WINDOW_NAME, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
@@ -65,20 +128,90 @@ int main(int argc, char *argv[]) {
 
     double playerAngle = -M_PI / 2;  // Początkowy kąt - patrzymy na lewo (90° w lewo od osi X)
 
-    bool moveForward = false, moveBackward = false;
-    while (run) {
+    Uint32** buff = (Uint32**)malloc(SCREEN_HEIGHT * sizeof(Uint32*));
+    if (!buff) {
+        printf("Błąd alokacji pamięci!\n");
+        return -1;  // lub inna obsługa błędu
+    }
 
+    for (int i = 0; i < SCREEN_HEIGHT; i++) {
+        buff[i] = (Uint32*)malloc(SCREEN_WIDTH * sizeof(Uint32));
+        if (!buff[i]) {
+            printf("Błąd alokacji pamięci dla wiersza %d!\n", i);
+
+            // Zwolnienie pamięci w przypadku błędu
+            for (int j = 0; j < i; j++) {
+                free(buff[j]);
+            }
+            free(buff);
+            return -1;  // lub inna obsługa błędu
+        }
+    }
+    Uint32** textures;
+
+    textures = (Uint32**)malloc(TEXTURES_NUMBER * sizeof(Uint32*));
+    if (textures == NULL) {
+        printf("Błąd alokacji pamięci!\n");
+        for (int i = 0; i < SCREEN_HEIGHT; i++) {
+            free(buff[i]);
+        }
+        free(buff);
+        exit(1);
+    }
+
+    for (int i = 0; i < TEXTURES_NUMBER; i++) {
+        textures[i] = (Uint32*)calloc(TEXTURE_WIDTH * TEXTURE_HEIGHT ,sizeof(Uint32));
+        if (textures[i] == NULL) {
+            printf("Błąd alokacji pamięci dla tekstury %d!\n", i);
+            for (int k = 0; k < SCREEN_HEIGHT; k++) {
+                free(buff[i]);
+            }
+            free(buff);
+            exit(1);
+        }
+    }
+
+    const char* file_paths[TEXTURES_NUMBER] = {
+        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/barrel.png", //0
+        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/bluestone.png", //1
+        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/colorstone.png", //2
+        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/eagle.png", //3
+        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/greenlight.png", //4
+        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/greystone.png", //5
+        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/mossy.png", //6
+        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/pillar.png", //7
+        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/purplestone.png", //8
+        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/redbrick.png", //9
+        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/wood.png" //10
+    };
+
+    for (int i = 0; i < TEXTURES_NUMBER; i++) {
+        if (load_texture(file_paths[i], textures[i]) == -1) {
+            printf("Nie udało się wczytać obrazka: %s\n", file_paths[i]);
+            for (int j = 0; j <= i; j++) {
+                free(textures[j]);
+            }
+            free(textures);
+            IMG_Quit();
+            SDL_Quit();
+            return -1;
+        }
+    }
+
+    bool moveForward = false, moveBackward = false;
+    bool moveLeft = false, moveRight = false;
+    while (run) {
 
         SDL_RenderClear(renderer);
         // Wypełnienie sufitu (górna połowa ekranu)
         SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255); // Szary sufit
-        SDL_Rect ceiling = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT / 2};
-        SDL_RenderFillRect(renderer, &ceiling);
+        SDL_Rect ceiling_rect = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT / 2};
+        SDL_RenderFillRect(renderer, &ceiling_rect);
 
         // Wypełnienie podłogi (dolna połowa ekranu)
         SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255); // Ciemniejsza podłoga
-        SDL_Rect floor = {0, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT / 2};
-        SDL_RenderFillRect(renderer, &floor);
+        SDL_Rect floor_rect = {0, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT / 2};
+        SDL_RenderFillRect(renderer, &floor_rect);
 
         for (int x = 0; x < SCREEN_WIDTH; x++) {
 
@@ -92,8 +225,8 @@ int main(int argc, char *argv[]) {
             double sideDistX =0;
             double sideDistY =0;
 
-            double deltaDistX = (rayDirX == 0) ? 1e30 : fabs(1.0 / rayDirX);
-            double deltaDistY = (rayDirY == 0) ? 1e30 : fabs(1.0 / rayDirY);
+            double deltaDistX = (rayDirX == 0) ? 1e30 : fabs(1 / rayDirX);
+            double deltaDistY = (rayDirY == 0) ? 1e30 : fabs(1 / rayDirY);
 
             double perpWallDist=0;
             int stepX = 0;
@@ -132,42 +265,68 @@ int main(int argc, char *argv[]) {
                     hit = 1;
                 }
             }
+
             if (side == 0) {
                 perpWallDist = sideDistX - deltaDistX;
             }else {
                 perpWallDist = sideDistY - deltaDistY;
             }
             int lineHeight = (int)(h/perpWallDist);
-            int drawStart = -lineHeight/2 + h/2;
+            int drawStart = (int)(-lineHeight/2.0 + h/2.0);
             if (drawStart < 0) {
                 drawStart = 0;
             }
-            int drawEnd = lineHeight/2 + h/2;
+            int drawEnd = (int)(lineHeight/2.0 + h/2.0);
             if (drawEnd >= h) {
-                drawEnd = h-1;
+                drawEnd = (int)(h-1.0);
             }
-            SDL_Color color;
-            switch (map[mapX][mapY]) {
-                case 1:
-                    color.r = 255;
-                    color.g = 0;
-                    color.b = 0;
-                    break;
-                default:
-                    color.r = 255;
-                    color.g = 255;
-                    color.b = 0;
-                    break;
+
+            int texNum = map[mapX][mapY];
+
+            double wallX =0;
+            if (side == 0) {
+                wallX = playerY + perpWallDist * rayDirY;
+            }else {
+                wallX = playerX + perpWallDist * rayDirX;
             }
-            if (side == 1) {
-                color.r /=2;
-                color.g /= 2;
-                color.b /= 2;
+
+            wallX -= floor(wallX);
+
+            int texX = (int)(wallX * (double)TEXTURE_WIDTH);
+            if (side == 0 && rayDirX > 0) {
+                texX = TEXTURE_WIDTH - texX-1;
             }
-            SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, 255);
-            SDL_RenderDrawLine(renderer, x, drawStart, x, drawEnd);
+            if (side == 1 && rayDirY < 0) {
+                texX = TEXTURE_WIDTH - texX-1;
+            }
+
+            double step = 1.0 * TEXTURE_WIDTH / lineHeight;
+
+            double texPos = (drawStart - h/2.0 + lineHeight/2.0) * step;
+            for (int y = drawStart; y < drawEnd; y++) {
+                int texY = (int)texPos & (TEXTURE_HEIGHT - 1);
+                texPos+=step;
+                Uint32 color = textures[texNum][TEXTURE_HEIGHT * texY + texX];
+                if (side ==1) {
+                    color = (color >> 1) & 8355711;
+                }
+                buff[y][x] = color;
+            }
+
+            for (int y = drawStart; y < drawEnd; y++) {
+                uint32_t color = buff[y][x];
+                SDL_SetRenderDrawColor(renderer, (color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF, 255);
+                SDL_RenderDrawPoint(renderer, x, y);
+            }
         }
+
         SDL_RenderPresent(renderer);
+
+        for (int i = 0; i < SCREEN_HEIGHT; i++) {
+            for (int j = 0; j < SCREEN_WIDTH; j++) {
+                buff[i][j] = 0;
+            }
+        }
 
         oldTime = time;
         time = SDL_GetTicks();
@@ -184,10 +343,14 @@ int main(int argc, char *argv[]) {
                 if (event.key.keysym.sym == SDLK_ESCAPE) run = false;
                 if (event.key.keysym.sym == SDLK_w) moveForward = true;
                 if (event.key.keysym.sym == SDLK_s) moveBackward = true;
+                if (event.key.keysym.sym == SDLK_a) moveLeft = true;
+                if (event.key.keysym.sym == SDLK_d) moveRight = true;
             }
             if (event.type == SDL_KEYUP) {
                 if (event.key.keysym.sym == SDLK_w) moveForward = false;
                 if (event.key.keysym.sym == SDLK_s) moveBackward = false;
+                if (event.key.keysym.sym == SDLK_a) moveLeft = false;
+                if (event.key.keysym.sym == SDLK_d) moveRight = false;
             }
 
             int mouseX, mouseY;
@@ -222,7 +385,6 @@ int main(int argc, char *argv[]) {
             }
 
         }
-
         if (moveBackward) {
             if (map[(int)(playerX - dirX * moveSpeed)][(int)playerY] == 0) {
                 playerX -= dirX * moveSpeed;
@@ -231,9 +393,36 @@ int main(int argc, char *argv[]) {
                 playerY -= dirY * moveSpeed;
             }
         }
+        if (moveLeft) {
+            if (map[(int)(playerX - planeX * moveSpeed)][(int)playerY] == 0) {
+                playerX -= planeX * moveSpeed;
+            }
+            if (map[(int)playerX][(int)(playerY - planeY * moveSpeed)] == 0) {
+                playerY -= planeY * moveSpeed;
+            }
+        }
+
+        if (moveRight) {
+            if (map[(int)(playerX + planeX * moveSpeed)][(int)playerY] == 0) {
+                playerX += planeX * moveSpeed;
+            }
+            if (map[(int)playerX][(int)(playerY + planeY * moveSpeed)] == 0) {
+                playerY += planeY * moveSpeed;
+            }
+        }
     }
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(main_window);
     SDL_Quit();
+    IMG_Quit();
+
+    for (int i = 0; i < TEXTURES_NUMBER; i++) {
+        free(textures[i]);
+    }
+    free(textures);
+    for (int i = 0; i < SCREEN_HEIGHT; i++) {
+        free(buff[i]);
+    }
+    free(buff);
     return 0;
 }
