@@ -5,8 +5,8 @@
 #include <stdbool.h>
 
 
-#define SCREEN_WIDTH 1024
-#define SCREEN_HEIGHT 720
+#define SCREEN_WIDTH 720
+#define SCREEN_HEIGHT 480
 #define WINDOW_NAME "SIMPLE RAYCATER GAME"
 
 #define MAP_WIDTH 12
@@ -43,25 +43,18 @@ uint8_t map[MAP_HEIGHT][MAP_WIDTH] = {
 {5,5,5,5,5,5,9,9,9,9,9,9}
 };
 
-void swap(uint32_t* a, uint32_t* b) {
-    uint32_t temp = *a;
-    *a = *b;
-    *b = temp;
-}
-
 
 int load_texture(const char* file_path, Uint32* texture) {
-    // Załaduj obrazek PNG jako SDL_Surface
     SDL_Surface* surface = IMG_Load(file_path);
     if (!surface) {
         printf("Nie udało się wczytać obrazka: %s\n", IMG_GetError());
-        return -1; // Błąd wczytywania obrazu
+        return -1;
     }
 
     if (surface->w != TEXTURE_WIDTH || surface->h != TEXTURE_HEIGHT) {
         printf("Obrazek ma inne wymiary niż oczekiwane!\n");
         SDL_FreeSurface(surface);
-        return -1; // Błąd, wymiary się nie zgadzają
+        return -1;
     }
 
     SDL_Surface* converted_surface = SDL_ConvertSurfaceFormat(surface, SDL_PIXELFORMAT_ARGB8888, 0);
@@ -70,13 +63,10 @@ int load_texture(const char* file_path, Uint32* texture) {
         SDL_FreeSurface(surface);
         return -1;
     }
-
-    // Skopiuj piksele do tablicy texture
     Uint32* pixels = (Uint32*)converted_surface->pixels;
     for (int i = 0; i < TEXTURE_WIDTH * TEXTURE_HEIGHT; i++) {
         texture[i] = pixels[i];
     }
-
     SDL_FreeSurface(converted_surface);
     SDL_FreeSurface(surface);
     return 0;
@@ -95,17 +85,6 @@ int main(int argc, char *argv[]) {
     }
 
     SDL_SetRelativeMouseMode(SDL_TRUE);
-
-    SDL_Window* main_window = SDL_CreateWindow(WINDOW_NAME, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
-    if (main_window == NULL) {
-        printf("SDL_CreateWindow Error: %s\n", SDL_GetError());
-        return -1;
-    }
-    SDL_Renderer * renderer = SDL_CreateRenderer(main_window, -1, SDL_RENDERER_ACCELERATED);
-    if (renderer == NULL) {
-        printf("SDL_CreateRenderer Error: %s\n", SDL_GetError());
-        return -1;
-    }
 
     SDL_Event event;
     bool run = true;
@@ -131,22 +110,21 @@ int main(int argc, char *argv[]) {
     Uint32** buff = (Uint32**)malloc(SCREEN_HEIGHT * sizeof(Uint32*));
     if (!buff) {
         printf("Błąd alokacji pamięci!\n");
-        return -1;  // lub inna obsługa błędu
+        return -1;
     }
 
     for (int i = 0; i < SCREEN_HEIGHT; i++) {
         buff[i] = (Uint32*)malloc(SCREEN_WIDTH * sizeof(Uint32));
         if (!buff[i]) {
             printf("Błąd alokacji pamięci dla wiersza %d!\n", i);
-
-            // Zwolnienie pamięci w przypadku błędu
             for (int j = 0; j < i; j++) {
                 free(buff[j]);
             }
             free(buff);
-            return -1;  // lub inna obsługa błędu
+            return -1;
         }
     }
+
     Uint32** textures;
 
     textures = (Uint32**)malloc(TEXTURES_NUMBER * sizeof(Uint32*));
@@ -156,7 +134,7 @@ int main(int argc, char *argv[]) {
             free(buff[i]);
         }
         free(buff);
-        exit(1);
+        return -1;
     }
 
     for (int i = 0; i < TEXTURES_NUMBER; i++) {
@@ -167,7 +145,7 @@ int main(int argc, char *argv[]) {
                 free(buff[i]);
             }
             free(buff);
-            exit(1);
+            return -1;
         }
     }
 
@@ -200,18 +178,76 @@ int main(int argc, char *argv[]) {
 
     bool moveForward = false, moveBackward = false;
     bool moveLeft = false, moveRight = false;
+
+    printf("Loaded all files correctly!!!");
+
+    SDL_Window* main_window = SDL_CreateWindow(WINDOW_NAME, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
+    if (main_window == NULL) {
+        for (int i = 0; i < TEXTURES_NUMBER; i++) {
+            free(textures[i]);
+        }
+        free(textures);
+        for (int i = 0; i < SCREEN_HEIGHT; i++) {
+            free(buff[i]);
+        }
+        free(buff);
+        printf("SDL_CreateWindow Error: %s\n", SDL_GetError());
+        return -1;
+    }
+    SDL_Renderer * renderer = SDL_CreateRenderer(main_window, -1, SDL_RENDERER_ACCELERATED);
+    if (renderer == NULL) {
+        for (int i = 0; i < TEXTURES_NUMBER; i++) {
+            free(textures[i]);
+        }
+        free(textures);
+        for (int i = 0; i < SCREEN_HEIGHT; i++) {
+            free(buff[i]);
+        }
+        free(buff);
+        printf("SDL_CreateRenderer Error: %s\n", SDL_GetError());
+        return -1;
+    }
+
     while (run) {
 
-        SDL_RenderClear(renderer);
-        // Wypełnienie sufitu (górna połowa ekranu)
-        SDL_SetRenderDrawColor(renderer, 100, 100, 100, 255); // Szary sufit
-        SDL_Rect ceiling_rect = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT / 2};
-        SDL_RenderFillRect(renderer, &ceiling_rect);
+        for (int y = 0; y < h; y++) {
 
-        // Wypełnienie podłogi (dolna połowa ekranu)
-        SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255); // Ciemniejsza podłoga
-        SDL_Rect floor_rect = {0, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT / 2};
-        SDL_RenderFillRect(renderer, &floor_rect);
+            double rayDirX0 = dirX - planeX;
+            double rayDirY0 = dirY - planeY;
+            double rayDirX1 = dirX + planeX;
+            double rayDirY1 = dirY + planeY;
+
+            int p = y-SCREEN_HEIGHT/2;
+
+            double posZ = 0.5 * SCREEN_HEIGHT;
+
+            double rowDistance = posZ/p;
+
+            double floorStepX = rowDistance * (rayDirX1 - rayDirX0) / SCREEN_WIDTH;
+            double floorStepY = rowDistance * (rayDirY1 - rayDirY0) / SCREEN_WIDTH;
+            double floorX = playerX + rowDistance * rayDirX0;
+            double floorY = playerY + rowDistance * rayDirY0;
+
+            for (int x = 0; x < SCREEN_WIDTH; ++x) {
+                int cellX = (int)(floorX);
+                int cellY = (int)(floorY);
+                int tx = (int)(TEXTURE_WIDTH * (floorX - (double)cellX))& (TEXTURE_WIDTH-1);
+                int ty = (int)(TEXTURE_HEIGHT * (floorY - (double)cellY))& (TEXTURE_HEIGHT-1);
+                floorX += floorStepX;
+                floorY += floorStepY;
+                int floor_texture = 5;
+                int ceilig_texture = 10;
+                Uint32 pixel;
+
+                pixel = textures[floor_texture][TEXTURE_WIDTH*ty + tx];
+                pixel = (pixel >>1 )& 8355711;
+                buff[y][x] = pixel;
+
+                pixel = textures[ceilig_texture][TEXTURE_WIDTH*ty + tx];
+                pixel = (pixel >>1) & 8355711;
+                buff[SCREEN_HEIGHT - y - 1][x] = pixel;
+            }
+        }
 
         for (int x = 0; x < SCREEN_WIDTH; x++) {
 
@@ -312,14 +348,17 @@ int main(int argc, char *argv[]) {
                 }
                 buff[y][x] = color;
             }
+        }
 
-            for (int y = drawStart; y < drawEnd; y++) {
+        SDL_RenderClear(renderer);
+
+        for (int x = 0; x < SCREEN_WIDTH; x++) {
+            for (int y = 0; y < SCREEN_HEIGHT; y++) {
                 uint32_t color = buff[y][x];
                 SDL_SetRenderDrawColor(renderer, (color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF, 255);
                 SDL_RenderDrawPoint(renderer, x, y);
             }
         }
-
         SDL_RenderPresent(renderer);
 
         for (int i = 0; i < SCREEN_HEIGHT; i++) {
