@@ -3,18 +3,18 @@
 #include <SDL.h>
 #include <SDL_image.h>
 #include <stdbool.h>
+#include "level_loader.h"
 
 #define SCREEN_WIDTH 1920
 #define SCREEN_HEIGHT 1080
 
+
 #define SCALE_FACTOR (3)
+
 
 #define RENDER_WIDTH (int)(SCREEN_WIDTH/(double)SCALE_FACTOR)
 #define RENDER_HEIGHT (int)(SCREEN_HEIGHT/(double)SCALE_FACTOR)
 #define WINDOW_NAME "SIMPLE RAYCATER GAME"
-
-#define MAP_WIDTH 12
-#define MAP_HEIGHT 12
 
 #define TEXTURES_NUMBER 11
 #define TEXTURE_WIDTH 64
@@ -35,24 +35,6 @@
 //         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/purplestone.png", //8
 //         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/redbrick.png", //9
 //         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/wood.png" //10
-
-#define FLOOR_TEXTURE_NUMBER 8
-#define CEILING_TEXTURE_NUMBER 2
-
-uint8_t map[MAP_HEIGHT][MAP_WIDTH] = {
-{5,5,5,5,5,5,5,5,5,5,5,5},
-{5,0,10,0,0,0,0,0,0,0,0,5},
-{5,0,10,10,10,10,10,0,0,0,0,5},
-{5,0,10,0,0,0,0,0,0,0,0,5},
-{6,0,10,0,0,0,0,0,0,0,0,5},
-{6,0,0,0,0,0,5,5,5,5,5,5},
-{6,0,0,0,0,0,0,0,0,0,0,5},
-{6,0,0,0,0,0,9,9,9,9,9,9},
-{5,0,0,0,0,0,9,0,0,9,9,9},
-{5,0,0,0,0,0,0,0,0,3,9,9},
-{5,0,0,0,0,0,9,0,0,9,9,9},
-{5,5,5,5,5,5,9,9,9,9,9,9}
-};
 
 enum game_states {
     RUNNING,
@@ -180,7 +162,7 @@ int load_assets(Uint32** textures) {
     return 0;
 }
 
-void calculate_floor_and_ceiling(double height, const player_t* player, const Uint32** textures, Uint32* buff) {
+void calculate_floor_and_ceiling(double height, const player_t* player,map_info_t * map_info, const Uint32** textures, Uint32* buff) {
     for (int y = 0; y < height; y++) {
         double rayDirX0 = player->dirX - player->camera.planeX;
         double rayDirY0 = player->dirY - player->camera.planeY;
@@ -205,8 +187,8 @@ void calculate_floor_and_ceiling(double height, const player_t* player, const Ui
             int ty = (int)(TEXTURE_HEIGHT * (floorY - (double)cellY))& (TEXTURE_HEIGHT-1);
             floorX += floorStepX;
             floorY += floorStepY;
-            int floor_texture = FLOOR_TEXTURE_NUMBER;
-            int ceilig_texture = CEILING_TEXTURE_NUMBER;
+            int floor_texture = map_info->floorTextureNumber;
+            int ceilig_texture = map_info->ceilingTextureNumber;
 
             Uint32 pixel = textures[floor_texture][TEXTURE_WIDTH * ty + tx];
             pixel = (pixel >>1 )& 8355711;
@@ -219,7 +201,7 @@ void calculate_floor_and_ceiling(double height, const player_t* player, const Ui
     }
 }
 
-void calculate_walls(const double height, const player_t *player, Uint32** textures, Uint32* buff) {
+void calculate_walls(const double height, const player_t *player,map_info_t*map,Uint32** textures, Uint32* buff) {
     for (int x = 0; x < RENDER_WIDTH; x++) {
             const double cameraX = 2*x / (double)RENDER_WIDTH -1;
             const double rayDirX = player->dirX + player->camera.planeX * cameraX;
@@ -267,7 +249,7 @@ void calculate_walls(const double height, const player_t *player, Uint32** textu
                     mapY += stepY;
                     side = 1;
                 }
-                if (map[mapX][mapY] > 0) {
+                if (map->value_map[mapX][mapY] > 0) {
                     hit = 1;
                 }
             }
@@ -287,7 +269,7 @@ void calculate_walls(const double height, const player_t *player, Uint32** textu
                 drawEnd = (int)(height-1.0);
             }
 
-            const int texNum = map[mapX][mapY];
+            const int texNum = map->value_map[mapX][mapY];
 
             double wallX =0;
             if (side == 0) {
@@ -321,39 +303,39 @@ void calculate_walls(const double height, const player_t *player, Uint32** textu
         }
 }
 
-void handle_movement(player_t *player, const double moveSpeed) {
+void handle_movement(player_t *player,map_info_t *map , const double moveSpeed) {
     if (player->keymap.moveForward) {
-        if (map[(int)(player->playerX + player->dirX * moveSpeed)][(int)player->playerY] == 0) {
+        if (map->value_map[(int)(player->playerX + player->dirX * moveSpeed)][(int)player->playerY] == 0) {
             player->playerX += player->dirX * moveSpeed;
         }
 
-        if (map[(int)player->playerX][(int)(player->playerY + player->dirY * moveSpeed)] == 0) {
+        if (map->value_map[(int)player->playerX][(int)(player->playerY + player->dirY * moveSpeed)] == 0) {
             player->playerY += player->dirY * moveSpeed;
         }
 
     }
     if (player->keymap.moveBackward) {
-        if (map[(int)(player->playerX - player->dirX * moveSpeed)][(int)player->playerY] == 0) {
+        if (map->value_map[(int)(player->playerX - player->dirX * moveSpeed)][(int)player->playerY] == 0) {
             player->playerX -= player->dirX * moveSpeed;
         }
-        if (map[(int)player->playerX][(int)(player->playerY - player->dirY * moveSpeed)] == 0) {
+        if (map->value_map[(int)player->playerX][(int)(player->playerY - player->dirY * moveSpeed)] == 0) {
             player->playerY -= player->dirY * moveSpeed;
         }
     }
     if (player->keymap.moveLeft) {
-        if (map[(int)(player->playerX - player->camera.planeX * moveSpeed)][(int)player->playerY] == 0) {
+        if (map->value_map[(int)(player->playerX - player->camera.planeX * moveSpeed)][(int)player->playerY] == 0) {
             player->playerX -= player->camera.planeX * moveSpeed;
         }
-        if (map[(int)player->playerX][(int)(player->playerY - player->camera.planeY * moveSpeed)] == 0) {
+        if (map->value_map[(int)player->playerX][(int)(player->playerY - player->camera.planeY * moveSpeed)] == 0) {
             player->playerY -= player->camera.planeY * moveSpeed;
         }
     }
 
     if (player->keymap.moveRight) {
-        if (map[(int)(player->playerX + player->camera.planeX * moveSpeed)][(int)player->playerY] == 0) {
+        if (map->value_map[(int)(player->playerX + player->camera.planeX * moveSpeed)][(int)player->playerY] == 0) {
             player->playerX += player->camera.planeX * moveSpeed;
         }
-        if (map[(int)player->playerX][(int)(player->playerY + player->camera.planeY * moveSpeed)] == 0) {
+        if (map->value_map[(int)player->playerX][(int)(player->playerY + player->camera.planeY * moveSpeed)] == 0) {
             player->playerY += player->camera.planeY * moveSpeed;
         }
     }
@@ -460,6 +442,14 @@ int main(int argc, char *argv[]) {
         close_libraries();
         return -1;
     }
+    map_info_t* map = loadMap("C:/Users/anton/CLionProjects/Raycaster/maps/testLevel2");
+    if (map == NULL) {
+        printf("%s",get_error_message());
+        free_textures_buffer(textures);
+        free_screen_buffer(buff);
+        close_libraries();
+        return -1;
+    }
 
     SDL_Window* main_window = SDL_CreateWindow(WINDOW_NAME, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN|SDL_WINDOW_ALLOW_HIGHDPI);
 
@@ -489,8 +479,8 @@ int main(int argc, char *argv[]) {
     camera.planeY = 0.66;
 
     player_t player = {
-        player.playerX = 5.0,
-        player.playerY = 4.0,
+        player.playerX = map->playerStartingTileX,
+        player.playerY = map->playerStartingTileY,
         player.dirX = -1.0,
         player.dirY =  0.0,
         player.angle = -M_PI / 2,
@@ -502,7 +492,6 @@ int main(int argc, char *argv[]) {
         player.keymap.moveRight = false,
     };
 
-
     double time = 0.0;
 
     double h = (double)RENDER_HEIGHT;
@@ -510,10 +499,8 @@ int main(int argc, char *argv[]) {
     enum game_states game_state = RUNNING;
     while (game_state == RUNNING || game_state == PAUSED) {
 
-        if (game_state == RUNNING) {
-            calculate_floor_and_ceiling(h,&player,textures,buff);
-            calculate_walls(h, &player,  textures,  buff);
-        }
+        calculate_floor_and_ceiling(h,&player,map,textures,buff);
+        calculate_walls(h, &player,map, textures,  buff);
 
         SDL_SetRenderTarget(renderer, lowResTexture);
 
@@ -544,7 +531,7 @@ int main(int argc, char *argv[]) {
 
         handle_keyboard(event,&player,&game_state,main_window);
         if (game_state == RUNNING) {
-            handle_movement(&player,moveSpeed);
+            handle_movement(&player,map,moveSpeed);
             handle_mouse_movement(&player);
         }
     }
@@ -559,5 +546,6 @@ int main(int argc, char *argv[]) {
     }
     free(textures);
     free(buff);
+    freeMap(map);
     return 0;
 }
