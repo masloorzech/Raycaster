@@ -7,8 +7,10 @@
 #define SCREEN_WIDTH 1920
 #define SCREEN_HEIGHT 1080
 
-#define RENDER_WIDTH 640
-#define RENDER_HEIGHT 480
+#define SCALE_FACTOR (4)
+
+#define RENDER_WIDTH (SCREEN_WIDTH/SCALE_FACTOR)
+#define RENDER_HEIGHT (SCREEN_HEIGHT/SCALE_FACTOR)
 #define WINDOW_NAME "SIMPLE RAYCATER GAME"
 
 #define MAP_WIDTH 12
@@ -44,6 +46,28 @@ uint8_t map[MAP_HEIGHT][MAP_WIDTH] = {
 {5,0,0,0,0,0,9,0,0,9,9,9},
 {5,5,5,5,5,5,9,9,9,9,9,9}
 };
+
+typedef struct player_keymap{
+    bool moveForward;
+    bool moveBackward;
+    bool moveLeft;
+    bool moveRight;
+}player_keymap_t;
+
+typedef struct camera {
+    double planeX;
+    double planeY;
+}camera_t;
+
+typedef struct player {
+    double playerX;
+    double playerY;
+    double dirX;
+    double dirY;
+    double angle;
+    camera_t camera;
+    player_keymap_t keymap;
+}player_t;
 
 
 int load_texture(const char* file_path, Uint32* texture) {
@@ -153,13 +177,13 @@ int load_assets(Uint32** textures) {
     return 0;
 }
 
-void calculate_floor_and_ceiling(const double height, const double dirX , const double dirY, const double planeX, const double planeY, const double playerX, const double playerY, Uint32** textures, Uint32** buff) {
+void calculate_floor_and_ceiling(const double height, const player_t* player, Uint32** textures, Uint32** buff) {
     for (int y = 0; y < height; y++) {
 
-        double rayDirX0 = dirX - planeX;
-        double rayDirY0 = dirY - planeY;
-        double rayDirX1 = dirX + planeX;
-        double rayDirY1 = dirY + planeY;
+        double rayDirX0 = player->dirX - player->camera.planeX;
+        double rayDirY0 = player->dirY - player->camera.planeY;
+        double rayDirX1 = player->dirX + player->camera.planeX;
+        double rayDirY1 = player->dirY + player->camera.planeY;
 
         int p = y-RENDER_HEIGHT/2;
 
@@ -169,8 +193,8 @@ void calculate_floor_and_ceiling(const double height, const double dirX , const 
 
         double floorStepX = rowDistance * (rayDirX1 - rayDirX0) / RENDER_WIDTH;
         double floorStepY = rowDistance * (rayDirY1 - rayDirY0) / RENDER_WIDTH;
-        double floorX = playerX + rowDistance * rayDirX0;
-        double floorY = playerY + rowDistance * rayDirY0;
+        double floorX = player->playerX + rowDistance * rayDirX0;
+        double floorY = player->playerY + rowDistance * rayDirY0;
 
         for (int x = 0; x < RENDER_WIDTH; ++x) {
             int cellX = (int)(floorX);
@@ -194,15 +218,15 @@ void calculate_floor_and_ceiling(const double height, const double dirX , const 
     }
 }
 
-void calculate_walls(double height, double dirX , double dirY, double planeX, double planeY, double playerX, double playerY, Uint32** textures, Uint32** buff) {
+void calculate_walls(double height,player_t *player, Uint32** textures, Uint32** buff) {
+
     for (int x = 0; x < RENDER_WIDTH; x++) {
-
             const double cameraX = 2*x / (double)RENDER_WIDTH -1;
-            const double rayDirX = dirX + planeX * cameraX;
-            const double rayDirY = dirY + planeY * cameraX;
+            const double rayDirX = player->dirX + player->camera.planeX * cameraX;
+            const double rayDirY = player->dirY + player->camera.planeY * cameraX;
 
-            int mapX = (int)playerX;
-            int mapY = (int)playerY;
+            int mapX = (int)player->playerX;
+            int mapY = (int)player->playerY;
 
             double sideDistX =0;
             double sideDistY =0;
@@ -218,19 +242,19 @@ void calculate_walls(double height, double dirX , double dirY, double planeX, do
 
             if (rayDirX < 0) {
                 stepX -= 1;
-                sideDistX = (playerX - mapX) * deltaDistX;
+                sideDistX = (player->playerX - mapX) * deltaDistX;
             }
             else {
                 stepX += 1;
-                sideDistX = (mapX + 1.0 - playerX) * deltaDistX;
+                sideDistX = (mapX + 1.0 - player->playerX) * deltaDistX;
             }
             if (rayDirY < 0) {
                 stepY -= 1;
-                sideDistY = (playerY - mapY) * deltaDistY;
+                sideDistY = (player->playerY - mapY) * deltaDistY;
             }
             else {
                 stepY += 1;
-                sideDistY = (mapY + 1.0 - playerY) * deltaDistY;
+                sideDistY = (mapY + 1.0 - player->playerY) * deltaDistY;
             }
             while (hit==0) {
                 if (sideDistX < sideDistY) {
@@ -267,9 +291,9 @@ void calculate_walls(double height, double dirX , double dirY, double planeX, do
 
             double wallX =0;
             if (side == 0) {
-                wallX = playerY + perpWallDist * rayDirY;
+                wallX = player->playerY + perpWallDist * rayDirY;
             }else {
-                wallX = playerX + perpWallDist * rayDirX;
+                wallX = player->playerX + perpWallDist * rayDirX;
             }
 
             wallX -= floor(wallX);
@@ -317,11 +341,13 @@ int main(int argc, char *argv[]) {
     }
 
     Uint32** textures = create_textures_buffer();
+
     if (!textures) {
         close_libraries();
         free_screen_buffer(buff);
         return -1;
     }
+
     if (load_assets(textures)!=0) {
         free_textures_buffer(textures);
         free_screen_buffer(buff);
@@ -330,6 +356,7 @@ int main(int argc, char *argv[]) {
     }
 
     SDL_Window* main_window = SDL_CreateWindow(WINDOW_NAME, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN|SDL_WINDOW_ALLOW_HIGHDPI);
+
     if (main_window == NULL) {
         printf("SDL_CreateWindow Error: %s\n", SDL_GetError());
         close_libraries();
@@ -346,36 +373,41 @@ int main(int argc, char *argv[]) {
         free_textures_buffer(textures);
         return -1;
     }
-    SDL_Texture *lowResTexture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_TARGET, RENDER_WIDTH, RENDER_HEIGHT);
 
-    bool moveForward = false, moveBackward = false;
-    bool moveLeft = false, moveRight = false;
+    SDL_Texture *lowResTexture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_TARGET, RENDER_WIDTH, RENDER_HEIGHT);
 
     SDL_Event event;
     bool run = true;
 
-    double playerX = 5.0;
-    double playerY = 4.0;
+    camera_t camera;
+    camera.planeX = 0;
+    camera.planeY = 0.66;
 
-    //Move vector
-    double dirX = -1.0;
-    double dirY = 0.0;
-
-    //Camera
-    double planeX =0;
-    double planeY = 0.66; //Camera plane
+    player_t player;
+    player.playerX = 5.0;
+    player.playerY = 4.0;
+    player.dirX = -1.0;
+    player.dirY =  0.0;
+    player.angle = -M_PI / 2;
+    player.camera = camera;
+    player.keymap.moveForward = false;
+    player.keymap.moveBackward = false;
+    player.keymap.moveLeft = false;
+    player.keymap.moveRight = false;
 
     double time = 0.0;
 
     double h = (double)RENDER_HEIGHT;
 
-    double playerAngle = -M_PI / 2;
+
     bool paused = false;
     while (run) {
+
         if (!paused) {
-            calculate_floor_and_ceiling(h,  dirX ,  dirY,  planeX,  planeY,  playerX,  playerY,  textures, buff);
-            calculate_walls(h, dirX , dirY, planeX,  planeY,  playerX,  playerY,  textures,  buff);
+            calculate_floor_and_ceiling(h,&player,textures,buff);
+            calculate_walls(h, &player,  textures,  buff);
         }
+
 
         SDL_SetRenderTarget(renderer, lowResTexture);
 
@@ -397,9 +429,7 @@ int main(int argc, char *argv[]) {
         SDL_RenderPresent(renderer);
 
         for (int i = 0; i < RENDER_HEIGHT; i++) {
-            for (int j = 0; j < RENDER_WIDTH; j++) {
-                buff[i][j] = 0;
-            }
+            memset(buff[i], 0, RENDER_WIDTH * sizeof(Uint32));
         }
 
         double oldTime = time;
@@ -415,10 +445,10 @@ int main(int argc, char *argv[]) {
             if (event.type == SDL_KEYDOWN) {
                 if (!paused) {
                     if (event.key.keysym.sym == SDLK_ESCAPE) run = false;
-                    if (event.key.keysym.sym == SDLK_w) moveForward = true;
-                    if (event.key.keysym.sym == SDLK_s) moveBackward = true;
-                    if (event.key.keysym.sym == SDLK_a) moveLeft = true;
-                    if (event.key.keysym.sym == SDLK_d) moveRight = true;
+                    if (event.key.keysym.sym == SDLK_w) player.keymap.moveForward = true;
+                    if (event.key.keysym.sym == SDLK_s) player.keymap.moveBackward = true;
+                    if (event.key.keysym.sym == SDLK_a) player.keymap.moveLeft = true;
+                    if (event.key.keysym.sym == SDLK_d) player.keymap.moveRight = true;
                 }
                 if (event.key.keysym.sym == SDLK_p) {
                     if (SDL_GetRelativeMouseMode()==SDL_TRUE) {
@@ -432,10 +462,10 @@ int main(int argc, char *argv[]) {
             }
             if (event.type == SDL_KEYUP) {
                 if (!paused) {
-                    if (event.key.keysym.sym == SDLK_w) moveForward = false;
-                    if (event.key.keysym.sym == SDLK_s) moveBackward = false;
-                    if (event.key.keysym.sym == SDLK_a) moveLeft = false;
-                    if (event.key.keysym.sym == SDLK_d) moveRight = false;
+                    if (event.key.keysym.sym == SDLK_w) player.keymap.moveForward = false;
+                    if (event.key.keysym.sym == SDLK_s) player.keymap.moveBackward = false;
+                    if (event.key.keysym.sym == SDLK_a) player.keymap.moveLeft = false;
+                    if (event.key.keysym.sym == SDLK_d) player.keymap.moveRight = false;
                 }
             }
             if (!paused) {
@@ -445,55 +475,55 @@ int main(int argc, char *argv[]) {
                 double mouseSensitivity = 0.002;  // Zmieniaj tę wartość, aby dostosować czułość obrotu
 
                 // Prędkość rotacji na podstawie zmiany pozycji myszy w poziomie
-                playerAngle += mouseX * mouseSensitivity;
+                player.angle += mouseX * mouseSensitivity;
 
                 // Zabezpieczenie przed przekroczeniem granic
-                if (playerAngle < -M_PI) playerAngle += 2 * M_PI;
-                if (playerAngle > M_PI) playerAngle -= 2 * M_PI;
+                if (player.angle < -M_PI) player.angle += 2 * M_PI;
+                if (player.angle > M_PI) player.angle -= 2 * M_PI;
 
                 // Zaktualizuj kierunek
-                dirX = cos(playerAngle);
-                dirY = sin(playerAngle);
+                player.dirX = cos(player.angle);
+                player.dirY = sin(player.angle);
 
                 // Zaktualizowanie kamery (plane)
-                planeX = cos(playerAngle + M_PI / 2) * 0.66;
-                planeY = sin(playerAngle + M_PI / 2) * 0.66;
+                player.camera.planeX = cos(player.angle + M_PI / 2) * 0.66;
+                player.camera.planeY = sin(player.angle + M_PI / 2) * 0.66;
             }
         }
 
-        if (moveForward) {
-            if (map[(int)(playerX + dirX * moveSpeed)][(int)playerY] == 0) {
-                playerX += dirX * moveSpeed;
+        if (player.keymap.moveForward) {
+            if (map[(int)(player.playerX + player.dirX * moveSpeed)][(int)player.playerY] == 0) {
+                player.playerX += player.dirX * moveSpeed;
             }
 
-            if (map[(int)playerX][(int)(playerY + dirY * moveSpeed)] == 0) {
-                playerY += dirY * moveSpeed;
+            if (map[(int)player.playerX][(int)(player.playerY + player.dirY * moveSpeed)] == 0) {
+                player.playerY += player.dirY * moveSpeed;
             }
 
         }
-        if (moveBackward) {
-            if (map[(int)(playerX - dirX * moveSpeed)][(int)playerY] == 0) {
-                playerX -= dirX * moveSpeed;
+        if (player.keymap.moveBackward) {
+            if (map[(int)(player.playerX - player.dirX * moveSpeed)][(int)player.playerY] == 0) {
+                player.playerX -= player.dirX * moveSpeed;
             }
-            if (map[(int)playerX][(int)(playerY - dirY * moveSpeed)] == 0) {
-                playerY -= dirY * moveSpeed;
+            if (map[(int)player.playerX][(int)(player.playerY - player.dirY * moveSpeed)] == 0) {
+                player.playerY -= player.dirY * moveSpeed;
             }
         }
-        if (moveLeft) {
-            if (map[(int)(playerX - planeX * moveSpeed)][(int)playerY] == 0) {
-                playerX -= planeX * moveSpeed;
+        if (player.keymap.moveLeft) {
+            if (map[(int)(player.playerX - player.camera.planeX * moveSpeed)][(int)player.playerY] == 0) {
+                player.playerX -= player.camera.planeX * moveSpeed;
             }
-            if (map[(int)playerX][(int)(playerY - planeY * moveSpeed)] == 0) {
-                playerY -= planeY * moveSpeed;
+            if (map[(int)player.playerX][(int)(player.playerY - player.camera.planeY * moveSpeed)] == 0) {
+                player.playerY -= player.camera.planeY * moveSpeed;
             }
         }
 
-        if (moveRight) {
-            if (map[(int)(playerX + planeX * moveSpeed)][(int)playerY] == 0) {
-                playerX += planeX * moveSpeed;
+        if (player.keymap.moveRight) {
+            if (map[(int)(player.playerX + player.camera.planeX * moveSpeed)][(int)player.playerY] == 0) {
+                player.playerX += player.camera.planeX * moveSpeed;
             }
-            if (map[(int)playerX][(int)(playerY + planeY * moveSpeed)] == 0) {
-                playerY += planeY * moveSpeed;
+            if (map[(int)player.playerX][(int)(player.playerY + player.camera.planeY * moveSpeed)] == 0) {
+                player.playerY += player.camera.planeY * moveSpeed;
             }
         }
     }
