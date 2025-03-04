@@ -10,6 +10,8 @@ set(SDL2_PATH "C:/SDL2")
 include_directories(${SDL2_PATH}/include)
 link_directories(${SDL2_PATH}/lib)
 
-add_executable(Raycaster main.c)
+add_executable(Raycaster main.c
+        level_loader.c
+        level_loader.h)
 
 target_link_libraries(Raycaster mingw32 SDL2main SDL2 SDL2_image)

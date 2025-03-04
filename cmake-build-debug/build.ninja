@@ -56,6 +56,13 @@ build CMakeFiles/Raycaster.dir/main.c.obj: C_COMPILER__Raycaster_unscanned_Debug
   OBJECT_DIR = CMakeFiles\Raycaster.dir
   OBJECT_FILE_DIR = CMakeFiles\Raycaster.dir
 
+build CMakeFiles/Raycaster.dir/level_loader.c.obj: C_COMPILER__Raycaster_unscanned_Debug C$:/Users/anton/CLionProjects/Raycaster/level_loader.c || cmake_object_order_depends_target_Raycaster
+  DEP_FILE = CMakeFiles\Raycaster.dir\level_loader.c.obj.d
+  FLAGS = -g -fdiagnostics-color=always
+  INCLUDES = -IC:/SDL2/include
+  OBJECT_DIR = CMakeFiles\Raycaster.dir
+  OBJECT_FILE_DIR = CMakeFiles\Raycaster.dir
+
 
 # =============================================================================
 # Link build statements for EXECUTABLE target Raycaster
@@ -64,7 +71,7 @@ build CMakeFiles/Raycaster.dir/main.c.obj: C_COMPILER__Raycaster_unscanned_Debug
 #############################################
 # Link the executable Raycaster.exe
 
-build Raycaster.exe: C_EXECUTABLE_LINKER__Raycaster_Debug CMakeFiles/Raycaster.dir/main.c.obj
+build Raycaster.exe: C_EXECUTABLE_LINKER__Raycaster_Debug CMakeFiles/Raycaster.dir/main.c.obj CMakeFiles/Raycaster.dir/level_loader.c.obj
   FLAGS = -g
   LINK_LIBRARIES = -lmingw32  -lSDL2main  -lSDL2  -lSDL2_image  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
   LINK_PATH = -LC:/SDL2/lib
