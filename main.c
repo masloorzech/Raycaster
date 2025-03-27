@@ -4,11 +4,12 @@
 #include <SDL_image.h>
 #include <stdbool.h>
 #include "libraries/level_loader.h"
+#include <pthread.h>
 
 #define SCREEN_WIDTH 1920
 #define SCREEN_HEIGHT 1080
 
-#define SCALE_FACTOR (2)
+#define SCALE_FACTOR (4)
 
 #define RENDER_WIDTH (int)(SCREEN_WIDTH/(double)SCALE_FACTOR)
 #define RENDER_HEIGHT (int)(SCREEN_HEIGHT/(double)SCALE_FACTOR)
@@ -50,6 +51,16 @@ typedef struct player {
     camera_t camera;
     player_keymap_t keymap;
 }player_t;
+
+typedef struct {
+    int startX;
+    int endX;
+    double height;
+    const player_t* player;
+    map_info_t *map;
+    Uint32 **textures;
+    Uint32 *buffer;
+}thread_data_t;
 
 int load_texture(const char* file_path, Uint32* texture) {
     SDL_Surface* surface = IMG_Load(file_path);
@@ -142,7 +153,7 @@ int load_assets(Uint32** textures) {
     return 0;
 }
 
-void calculate_floor_and_ceiling(double height, const player_t* player,map_info_t * map_info, const Uint32** textures, Uint32* buff) {
+void calculate_floor_and_ceiling(int start_x, int end_x, double height, const player_t* player,map_info_t * map_info, const Uint32** textures, Uint32* buff) {
     for (int y = 0; y < height; y++) {
         double rayDirX0 = player->dirX - player->camera.planeX;
         double rayDirY0 = player->dirY - player->camera.planeY;
@@ -160,7 +171,7 @@ void calculate_floor_and_ceiling(double height, const player_t* player,map_info_
         double floorX = player->playerX + rowDistance * rayDirX0;
         double floorY = player->playerY + rowDistance * rayDirY0;
 
-        for (int x = 0; x < RENDER_WIDTH; ++x) {
+        for (int x = start_x; x < end_x; ++x) {
             int cellX = (int)(floorX);
             int cellY = (int)(floorY);
             int tx = (int)(TEXTURE_WIDTH * (floorX - (double)cellX))& (TEXTURE_WIDTH-1);
@@ -180,10 +191,11 @@ void calculate_floor_and_ceiling(double height, const player_t* player,map_info_
         }
     }
 }
+void calculate_walls_for_thread(int start_x,int end_x,const double height, const player_t *player,map_info_t*map,Uint32** textures, Uint32* buff) {
 
-void calculate_walls(const double height, const player_t *player,map_info_t*map,Uint32** textures, Uint32* buff) {
-    for (int x = 0; x < RENDER_WIDTH; x++) {
-            const double cameraX = 2*x / (double)RENDER_WIDTH -1;
+    for (int x = start_x; x < end_x; x++) {
+
+            const double cameraX = 2*x / (double)RENDER_WIDTH-1;
             const double rayDirX = player->dirX + player->camera.planeX * cameraX;
             const double rayDirY = player->dirY + player->camera.planeY * cameraX;
 
@@ -283,6 +295,38 @@ void calculate_walls(const double height, const player_t *player,map_info_t*map,
         }
 }
 
+void* calculate_walls_segments(void* arg) {
+    thread_data_t* thread_data = (thread_data_t*)arg;
+    int start_x = thread_data->startX;
+    int end_x = thread_data->endX;
+    double height = thread_data->height;
+    const player_t *player = thread_data->player;
+    map_info_t* map = thread_data->map;
+    Uint32** textures = thread_data->textures;
+    Uint32* buff = thread_data->buffer;
+    calculate_walls_for_thread(start_x,end_x,height,player,map,textures,buff);
+    return NULL;
+}
+
+void calculate_walls(double height, const player_t *player, map_info_t* map, Uint32** textures, Uint32* buff) {
+    int num_threads = 4;
+    pthread_t threads[num_threads];
+    thread_data_t thread_data[num_threads];
+    int chunk_size = RENDER_WIDTH / num_threads;
+    for (int i = 0; i < num_threads; i++) {
+        thread_data[i].startX = i * chunk_size;
+        thread_data[i].endX= (i == num_threads - 1) ? RENDER_WIDTH : (i + 1) * chunk_size;
+        thread_data[i].height = height;
+        thread_data[i].player = player;
+        thread_data[i].map = map;
+        thread_data[i].textures = textures;
+        thread_data[i].buffer = buff;
+        pthread_create(&threads[i], NULL, calculate_walls_segments, &thread_data[i]);
+    }
+    for (int i = 0; i < num_threads; i++) {
+        pthread_join(threads[i], NULL);
+    }
+}
 void handle_movement(player_t *player,map_info_t *map , const double moveSpeed) {
     if (player->keymap.moveForward) {
         if (map->value_map[(int)(player->playerX + player->dirX * moveSpeed)][(int)player->playerY] == 0) {
@@ -475,12 +519,18 @@ int main(int argc, char *argv[]) {
     double time = 0.0;
 
     double h = (double)RENDER_HEIGHT;
-
+    clock_t start, end;
+    double elapsed_time;
     enum game_states game_state = RUNNING;
     while (game_state == RUNNING || game_state == PAUSED) {
 
-        calculate_floor_and_ceiling(h,&player,map,textures,buff);
+        start = clock();
+        calculate_floor_and_ceiling(0,RENDER_WIDTH,h,&player,map,textures,buff);
         calculate_walls(h, &player,map, textures,  buff);
+        end = clock();
+
+        elapsed_time = ((double)(end - start)) / CLOCKS_PER_SEC * 1000;
+        printf("Czas rysowania scian: %.3f ms\n", elapsed_time);
 
         SDL_SetRenderTarget(renderer, lowResTexture);
 
