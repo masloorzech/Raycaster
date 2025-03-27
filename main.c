@@ -3,38 +3,23 @@
 #include <SDL.h>
 #include <SDL_image.h>
 #include <stdbool.h>
-#include "level_loader.h"
+#include "libraries/level_loader.h"
 
 #define SCREEN_WIDTH 1920
 #define SCREEN_HEIGHT 1080
 
-
-#define SCALE_FACTOR (3)
-
+#define SCALE_FACTOR (2)
 
 #define RENDER_WIDTH (int)(SCREEN_WIDTH/(double)SCALE_FACTOR)
 #define RENDER_HEIGHT (int)(SCREEN_HEIGHT/(double)SCALE_FACTOR)
 #define WINDOW_NAME "SIMPLE RAYCATER GAME"
 
-#define TEXTURES_NUMBER 11
+#define TEXTURES_NUMBER 64
 #define TEXTURE_WIDTH 64
 #define TEXTURE_HEIGHT 64
 
 #define BASIC_SPEED 5.0
 #define SPRINT_SPEED 7.0
-
-
-//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/barrel.png", //0
-//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/bluestone.png", //1
-//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/colorstone.png", //2
-//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/eagle.png", //3
-//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/greenlight.png", //4
-//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/greystone.png", //5
-//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/mossy.png", //6
-//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/pillar.png", //7
-//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/purplestone.png", //8
-//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/redbrick.png", //9
-//         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/wood.png" //10
 
 enum game_states {
     RUNNING,
@@ -69,19 +54,19 @@ typedef struct player {
 int load_texture(const char* file_path, Uint32* texture) {
     SDL_Surface* surface = IMG_Load(file_path);
     if (!surface) {
-        printf("Nie udało się wczytać obrazka: %s\n", IMG_GetError());
+        printf("Cannot load image: %s\n", IMG_GetError());
         return -1;
     }
 
     if (surface->w != TEXTURE_WIDTH || surface->h != TEXTURE_HEIGHT) {
-        printf("Obrazek ma inne wymiary niż oczekiwane!\n");
+        printf("Image has different sizes than expected\n");
         SDL_FreeSurface(surface);
         return -1;
     }
 
     SDL_Surface* converted_surface = SDL_ConvertSurfaceFormat(surface, SDL_PIXELFORMAT_ARGB8888, 0);
     if (!converted_surface) {
-        printf("Nie udało się przekonwertować powierzchni: %s\n", SDL_GetError());
+        printf("Cannot convert image to surface: %s\n", SDL_GetError());
         SDL_FreeSurface(surface);
         return -1;
     }
@@ -97,7 +82,7 @@ int load_texture(const char* file_path, Uint32* texture) {
 Uint32* create_screen_buffer() {
     Uint32* buff = (Uint32*)malloc(RENDER_HEIGHT * RENDER_WIDTH * sizeof(Uint32));
     if (!buff) {
-        printf("Błąd alokacji pamięci!\n");
+        printf("Allocation error\n");
         return NULL;
     }
     memset(buff, 0, RENDER_HEIGHT * RENDER_WIDTH * sizeof(Uint32));
@@ -140,22 +125,17 @@ void close_libraries() {
 
 int load_assets(Uint32** textures) {
     const char* file_paths[TEXTURES_NUMBER] = {
-        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/barrel.png", //0
-        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/bluestone.png", //1
-        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/colorstone.png", //2
-        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/eagle.png", //3
-        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/greenlight.png", //4
-        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/fancy_textures/Brick_Wall_64x64.png", //5
-        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/mossy.png", //6
-        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/pillar.png", //7
-        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/fancy_textures/Wooden_Floor_Horizontal_64x64.png", //8
-        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/redbrick.png", //9
-        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/wood.png" //10
+        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/WOOD_1C.PNG",
+        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/BRICK_2B.PNG",
+        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/BRICK_1A.PNG",
+        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/greystone.PNG"
     };
-
     for (int i = 0; i < TEXTURES_NUMBER; i++) {
+        if (file_paths[i]==NULL){
+            continue;
+        }
         if (load_texture(file_paths[i], textures[i]) == -1) {
-            printf("Nie udało się wczytać obrazka: %s\n", file_paths[i]);
+            printf("Cannot load image: %s\n", file_paths[i]);
             return -1;
         }
     }
@@ -312,7 +292,6 @@ void handle_movement(player_t *player,map_info_t *map , const double moveSpeed) 
         if (map->value_map[(int)player->playerX][(int)(player->playerY + player->dirY * moveSpeed)] == 0) {
             player->playerY += player->dirY * moveSpeed;
         }
-
     }
     if (player->keymap.moveBackward) {
         if (map->value_map[(int)(player->playerX - player->dirX * moveSpeed)][(int)player->playerY] == 0) {
@@ -351,9 +330,7 @@ void handle_mouse_movement(player_t *player) {
     int mouseX=0, mouseY=0;
     SDL_GetRelativeMouseState(&mouseX, &mouseY);
 
-    double mouseSensitivity = 0.002;  // Zmieniaj tę wartość, aby dostosować czułość obrotu
-
-    // Prędkość rotacji na podstawie zmiany pozycji myszy w poziomie
+    double mouseSensitivity = 0.002;
     player->angle += mouseX * mouseSensitivity;
 
     // Zabezpieczenie przed przekroczeniem granic
@@ -410,6 +387,9 @@ void handle_keyboard(SDL_Event event,player_t *player,enum game_states *gameStat
 }
 
 int main(int argc, char *argv[]) {
+
+    char path[PATH_MAX];
+    path[0] = '\0';
     if (SDL_Init(SDL_INIT_EVERYTHING)!=0) {
         printf("SDL_Init Error: %s\n", SDL_GetError());
         return -1;
@@ -442,7 +422,7 @@ int main(int argc, char *argv[]) {
         close_libraries();
         return -1;
     }
-    map_info_t* map = loadMap("C:/Users/anton/CLionProjects/Raycaster/maps/testLevel2");
+    map_info_t* map = loadMap("C:/Users/anton/CLionProjects/Raycaster/maps/Test_map.txt");
     if (map == NULL) {
         printf("%s",get_error_message());
         free_textures_buffer(textures);
