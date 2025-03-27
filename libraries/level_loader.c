@@ -68,7 +68,7 @@ map_info_t* loadMap(const char* filename) {
     }
 
     fclose(file);
-    errorValue = ERROR_NONE;  // wszystko OK
+    errorValue = ERROR_NONE;
     return map;
 }
 
