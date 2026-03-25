@@ -2,10 +2,16 @@
 #ifdef _WIN32
 #include <SDL.h>
 #include <SDL_image.h>
+#include <direct.h>
+#define getcwd _getcwd
+
 #else
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
+#include <unistd.h>
+
 #endif
+
 
 #include <math.h>
 #include <stdio.h>
@@ -62,7 +68,12 @@ typedef struct player {
 int load_texture(const char* file_path, Uint32* texture) {
     SDL_Surface* surface = IMG_Load(file_path);
     if (!surface) {
-        printf("Cannot load image: %s\n", IMG_GetError());
+        char cwd[PATH_MAX];
+        getcwd(cwd, sizeof(cwd));
+
+        printf("Working directory: %s\n", cwd);
+        printf("Trying to load: %s\n", file_path);
+        printf("SDL error: %s\n", IMG_GetError());
         return -1;
     }
 
@@ -86,7 +97,6 @@ int load_texture(const char* file_path, Uint32* texture) {
     SDL_FreeSurface(surface);
     return 0;
 }
-
 
 Uint32* create_screen_buffer() {
     Uint32* buff = (Uint32*)malloc(RENDER_HEIGHT * RENDER_WIDTH * sizeof(Uint32));
@@ -135,17 +145,17 @@ void close_libraries() {
 int load_assets(Uint32** textures) {
 #ifdef _WIN32
     const char* file_paths[TEXTURES_NUMBER] = {
-        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/WOOD_1C.PNG",
-        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/BRICK_2B.PNG",
-        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/BRICK_1A.PNG",
-        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/greystone.PNG"
+        "../assets/textures/WOOD_1C.PNG",
+        "../assets/textures/BRICK_2B.PNG",
+        "../assets/textures/BRICK_1A.PNG",
+        "../assets/textures/greystone.PNG"
     };
 #else
     const char* file_paths[TEXTURES_NUMBER] = {
-        "/mnt/c/Users/anton/CLionProjects/Raycaster/assets/textures/WOOD_1C.PNG",
-        "/mnt/c/Users/anton/CLionProjects/Raycaster/assets/textures/BRICK_2B.PNG",
-        "/mnt/c/Users/anton/CLionProjects/Raycaster/assets/textures/BRICK_1A.PNG",
-        "/mnt/c/Users/anton/CLionProjects/Raycaster/assets/textures/greystone.PNG"
+        "assets/textures/WOOD_1C.PNG",
+        "assets/textures/BRICK_2B.PNG",
+        "assets/textures/BRICK_1A.PNG",
+        "assets/textures/greystone.PNG"
     };
 #endif
 
@@ -440,9 +450,9 @@ int main(int argc, char *argv[]) {
         return -1;
     }
     #ifdef _WIN32
-        map_info_t* map = loadMap("C:/Users/anton/CLionProjects/Raycaster/maps/Test_map.txt");
+        map_info_t* map = loadMap("../maps/labirynth.txt");
     #else
-        map_info_t* map = loadMap("/mnt/c/Users/anton/CLionProjects/Raycaster/maps/Test_map.txt");
+        map_info_t* map = loadMap("../maps/labirynth.txt");
     #endif
     if (map == NULL) {
         printf("%s",get_error_message());
