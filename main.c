@@ -1,15 +1,28 @@
-#include <math.h>
-#include <stdio.h>
+
+#ifdef _WIN32
 #include <SDL.h>
 #include <SDL_image.h>
+#include <direct.h>
+#define getcwd _getcwd
+
+#else
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
+#include <unistd.h>
+
+#endif
+
+
+#include <math.h>
+#include <stdio.h>
 #include <stdbool.h>
 #include "libraries/level_loader.h"
-#include <pthread.h>
+#include <limits.h>
 
 #define SCREEN_WIDTH 1920
 #define SCREEN_HEIGHT 1080
 
-#define SCALE_FACTOR (4)
+#define SCALE_FACTOR (1)
 
 #define RENDER_WIDTH (int)(SCREEN_WIDTH/(double)SCALE_FACTOR)
 #define RENDER_HEIGHT (int)(SCREEN_HEIGHT/(double)SCALE_FACTOR)
@@ -52,20 +65,15 @@ typedef struct player {
     player_keymap_t keymap;
 }player_t;
 
-typedef struct {
-    int startX;
-    int endX;
-    double height;
-    const player_t* player;
-    map_info_t *map;
-    Uint32 **textures;
-    Uint32 *buffer;
-}thread_data_t;
-
 int load_texture(const char* file_path, Uint32* texture) {
     SDL_Surface* surface = IMG_Load(file_path);
     if (!surface) {
-        printf("Cannot load image: %s\n", IMG_GetError());
+        char cwd[PATH_MAX];
+        getcwd(cwd, sizeof(cwd));
+
+        printf("Working directory: %s\n", cwd);
+        printf("Trying to load: %s\n", file_path);
+        printf("SDL error: %s\n", IMG_GetError());
         return -1;
     }
 
@@ -135,12 +143,22 @@ void close_libraries() {
 }
 
 int load_assets(Uint32** textures) {
+#ifdef _WIN32
     const char* file_paths[TEXTURES_NUMBER] = {
-        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/WOOD_1C.PNG",
-        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/BRICK_2B.PNG",
-        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/BRICK_1A.PNG",
-        "C:/Users/anton/CLionProjects/Raycaster/assets/textures/greystone.PNG"
+        "../assets/textures/WOOD_1C.PNG",
+        "../assets/textures/BRICK_2B.PNG",
+        "../assets/textures/BRICK_1A.PNG",
+        "../assets/textures/greystone.PNG"
     };
+#else
+    const char* file_paths[TEXTURES_NUMBER] = {
+        "assets/textures/WOOD_1C.PNG",
+        "assets/textures/BRICK_2B.PNG",
+        "assets/textures/BRICK_1A.PNG",
+        "assets/textures/greystone.PNG"
+    };
+#endif
+
     for (int i = 0; i < TEXTURES_NUMBER; i++) {
         if (file_paths[i]==NULL){
             continue;
@@ -153,7 +171,7 @@ int load_assets(Uint32** textures) {
     return 0;
 }
 
-void calculate_floor_and_ceiling(int start_x, int end_x, double height, const player_t* player,map_info_t * map_info, const Uint32** textures, Uint32* buff) {
+void calculate_floor_and_ceiling(double height, const player_t* player,map_info_t * map_info,  Uint32* const* textures, Uint32* buff) {
     for (int y = 0; y < height; y++) {
         double rayDirX0 = player->dirX - player->camera.planeX;
         double rayDirY0 = player->dirY - player->camera.planeY;
@@ -171,7 +189,7 @@ void calculate_floor_and_ceiling(int start_x, int end_x, double height, const pl
         double floorX = player->playerX + rowDistance * rayDirX0;
         double floorY = player->playerY + rowDistance * rayDirY0;
 
-        for (int x = start_x; x < end_x; ++x) {
+        for (int x = 0; x < RENDER_WIDTH; ++x) {
             int cellX = (int)(floorX);
             int cellY = (int)(floorY);
             int tx = (int)(TEXTURE_WIDTH * (floorX - (double)cellX))& (TEXTURE_WIDTH-1);
@@ -191,11 +209,10 @@ void calculate_floor_and_ceiling(int start_x, int end_x, double height, const pl
         }
     }
 }
-void calculate_walls_for_thread(int start_x,int end_x,const double height, const player_t *player,map_info_t*map,Uint32** textures, Uint32* buff) {
 
-    for (int x = start_x; x < end_x; x++) {
-
-            const double cameraX = 2*x / (double)RENDER_WIDTH-1;
+void calculate_walls(const double height, const player_t *player,map_info_t*map,Uint32** textures, Uint32* buff) {
+    for (int x = 0; x < RENDER_WIDTH; x++) {
+            const double cameraX = 2*x / (double)RENDER_WIDTH -1;
             const double rayDirX = player->dirX + player->camera.planeX * cameraX;
             const double rayDirY = player->dirY + player->camera.planeY * cameraX;
 
@@ -295,38 +312,6 @@ void calculate_walls_for_thread(int start_x,int end_x,const double height, const
         }
 }
 
-void* calculate_walls_segments(void* arg) {
-    thread_data_t* thread_data = (thread_data_t*)arg;
-    int start_x = thread_data->startX;
-    int end_x = thread_data->endX;
-    double height = thread_data->height;
-    const player_t *player = thread_data->player;
-    map_info_t* map = thread_data->map;
-    Uint32** textures = thread_data->textures;
-    Uint32* buff = thread_data->buffer;
-    calculate_walls_for_thread(start_x,end_x,height,player,map,textures,buff);
-    return NULL;
-}
-
-void calculate_walls(double height, const player_t *player, map_info_t* map, Uint32** textures, Uint32* buff) {
-    int num_threads = 4;
-    pthread_t threads[num_threads];
-    thread_data_t thread_data[num_threads];
-    int chunk_size = RENDER_WIDTH / num_threads;
-    for (int i = 0; i < num_threads; i++) {
-        thread_data[i].startX = i * chunk_size;
-        thread_data[i].endX= (i == num_threads - 1) ? RENDER_WIDTH : (i + 1) * chunk_size;
-        thread_data[i].height = height;
-        thread_data[i].player = player;
-        thread_data[i].map = map;
-        thread_data[i].textures = textures;
-        thread_data[i].buffer = buff;
-        pthread_create(&threads[i], NULL, calculate_walls_segments, &thread_data[i]);
-    }
-    for (int i = 0; i < num_threads; i++) {
-        pthread_join(threads[i], NULL);
-    }
-}
 void handle_movement(player_t *player,map_info_t *map , const double moveSpeed) {
     if (player->keymap.moveForward) {
         if (map->value_map[(int)(player->playerX + player->dirX * moveSpeed)][(int)player->playerY] == 0) {
@@ -377,15 +362,12 @@ void handle_mouse_movement(player_t *player) {
     double mouseSensitivity = 0.002;
     player->angle += mouseX * mouseSensitivity;
 
-    // Zabezpieczenie przed przekroczeniem granic
     if (player->angle < -M_PI) player->angle += 2 * M_PI;
     if (player->angle > M_PI) player->angle -= 2 * M_PI;
 
-    // Zaktualizuj kierunek
     player->dirX = cos(player->angle);
     player->dirY = sin(player->angle);
 
-    // Zaktualizowanie kamery (plane)
     player->camera.planeX = cos(player->angle + M_PI / 2) * 0.66;
     player->camera.planeY = sin(player->angle + M_PI / 2) * 0.66;
 }
@@ -430,6 +412,7 @@ void handle_keyboard(SDL_Event event,player_t *player,enum game_states *gameStat
     }
 }
 
+
 int main(int argc, char *argv[]) {
 
     char path[PATH_MAX];
@@ -466,7 +449,11 @@ int main(int argc, char *argv[]) {
         close_libraries();
         return -1;
     }
-    map_info_t* map = loadMap("C:/Users/anton/CLionProjects/Raycaster/maps/Test_map.txt");
+    #ifdef _WIN32
+        map_info_t* map = loadMap("../maps/labirynth.txt");
+    #else
+        map_info_t* map = loadMap("../maps/labirynth.txt");
+    #endif
     if (map == NULL) {
         printf("%s",get_error_message());
         free_textures_buffer(textures);
@@ -494,7 +481,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    SDL_Texture *lowResTexture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_TARGET, RENDER_WIDTH, RENDER_HEIGHT);
+    SDL_Texture *lowResTexture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_STREAMING, RENDER_WIDTH, RENDER_HEIGHT);
 
     SDL_Event event = {};
 
@@ -519,34 +506,18 @@ int main(int argc, char *argv[]) {
     double time = 0.0;
 
     double h = (double)RENDER_HEIGHT;
-    clock_t start, end;
-    double elapsed_time;
+
     enum game_states game_state = RUNNING;
     while (game_state == RUNNING || game_state == PAUSED) {
 
-        start = clock();
-        calculate_floor_and_ceiling(0,RENDER_WIDTH,h,&player,map,textures,buff);
+        calculate_floor_and_ceiling(h,&player,map,textures,buff);
         calculate_walls(h, &player,map, textures,  buff);
-        end = clock();
 
-        elapsed_time = ((double)(end - start)) / CLOCKS_PER_SEC * 1000;
-        printf("Czas rysowania scian: %.3f ms\n", elapsed_time);
-
-        SDL_SetRenderTarget(renderer, lowResTexture);
-
-        for (int x = 0; x < RENDER_WIDTH; x++) {
-            for (int y = 0; y < RENDER_HEIGHT; y++) {
-                const uint32_t color = buff[y * RENDER_WIDTH + x];
-                SDL_SetRenderDrawColor(renderer, (color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF, 255);
-                SDL_RenderDrawPoint(renderer, x, y);
-            }
-        }
-
-        SDL_SetRenderTarget(renderer, NULL);
+        SDL_UpdateTexture(lowResTexture, NULL, buff, RENDER_WIDTH * sizeof(Uint32));
 
         SDL_RenderClear(renderer);
 
-        SDL_Rect destRect = {0,0,SCREEN_WIDTH,SCREEN_HEIGHT};
+        SDL_Rect destRect = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
         SDL_RenderCopy(renderer, lowResTexture, NULL, &destRect);
 
         SDL_RenderPresent(renderer);
