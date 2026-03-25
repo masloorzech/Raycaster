@@ -150,7 +150,7 @@ int load_assets(Uint32** textures) {
 #endif
 
     for (int i = 0; i < TEXTURES_NUMBER; i++) {
-        if (file_paths[i] == NULL) {
+        if (file_paths[i]==NULL){
             continue;
         }
         if (load_texture(file_paths[i], textures[i]) == -1) {
