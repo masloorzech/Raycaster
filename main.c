@@ -1,14 +1,22 @@
-#include <math.h>
-#include <stdio.h>
+
+#ifdef _WIN32
 #include <SDL.h>
 #include <SDL_image.h>
+#else
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
+#endif
+
+#include <math.h>
+#include <stdio.h>
 #include <stdbool.h>
 #include "libraries/level_loader.h"
+#include <limits.h>
 
 #define SCREEN_WIDTH 1920
 #define SCREEN_HEIGHT 1080
 
-#define SCALE_FACTOR (2)
+#define SCALE_FACTOR (1)
 
 #define RENDER_WIDTH (int)(SCREEN_WIDTH/(double)SCALE_FACTOR)
 #define RENDER_HEIGHT (int)(SCREEN_HEIGHT/(double)SCALE_FACTOR)
@@ -79,6 +87,7 @@ int load_texture(const char* file_path, Uint32* texture) {
     return 0;
 }
 
+
 Uint32* create_screen_buffer() {
     Uint32* buff = (Uint32*)malloc(RENDER_HEIGHT * RENDER_WIDTH * sizeof(Uint32));
     if (!buff) {
@@ -124,14 +133,24 @@ void close_libraries() {
 }
 
 int load_assets(Uint32** textures) {
+#ifdef _WIN32
     const char* file_paths[TEXTURES_NUMBER] = {
         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/WOOD_1C.PNG",
         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/BRICK_2B.PNG",
         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/BRICK_1A.PNG",
         "C:/Users/anton/CLionProjects/Raycaster/assets/textures/greystone.PNG"
     };
+#else
+    const char* file_paths[TEXTURES_NUMBER] = {
+        "/mnt/c/Users/anton/CLionProjects/Raycaster/assets/textures/WOOD_1C.PNG",
+        "/mnt/c/Users/anton/CLionProjects/Raycaster/assets/textures/BRICK_2B.PNG",
+        "/mnt/c/Users/anton/CLionProjects/Raycaster/assets/textures/BRICK_1A.PNG",
+        "/mnt/c/Users/anton/CLionProjects/Raycaster/assets/textures/greystone.PNG"
+    };
+#endif
+
     for (int i = 0; i < TEXTURES_NUMBER; i++) {
-        if (file_paths[i]==NULL){
+        if (file_paths[i] == NULL) {
             continue;
         }
         if (load_texture(file_paths[i], textures[i]) == -1) {
@@ -142,7 +161,7 @@ int load_assets(Uint32** textures) {
     return 0;
 }
 
-void calculate_floor_and_ceiling(double height, const player_t* player,map_info_t * map_info, const Uint32** textures, Uint32* buff) {
+void calculate_floor_and_ceiling(double height, const player_t* player,map_info_t * map_info,  Uint32* const* textures, Uint32* buff) {
     for (int y = 0; y < height; y++) {
         double rayDirX0 = player->dirX - player->camera.planeX;
         double rayDirY0 = player->dirY - player->camera.planeY;
@@ -333,15 +352,12 @@ void handle_mouse_movement(player_t *player) {
     double mouseSensitivity = 0.002;
     player->angle += mouseX * mouseSensitivity;
 
-    // Zabezpieczenie przed przekroczeniem granic
     if (player->angle < -M_PI) player->angle += 2 * M_PI;
     if (player->angle > M_PI) player->angle -= 2 * M_PI;
 
-    // Zaktualizuj kierunek
     player->dirX = cos(player->angle);
     player->dirY = sin(player->angle);
 
-    // Zaktualizowanie kamery (plane)
     player->camera.planeX = cos(player->angle + M_PI / 2) * 0.66;
     player->camera.planeY = sin(player->angle + M_PI / 2) * 0.66;
 }
@@ -386,6 +402,7 @@ void handle_keyboard(SDL_Event event,player_t *player,enum game_states *gameStat
     }
 }
 
+
 int main(int argc, char *argv[]) {
 
     char path[PATH_MAX];
@@ -422,7 +439,11 @@ int main(int argc, char *argv[]) {
         close_libraries();
         return -1;
     }
-    map_info_t* map = loadMap("C:/Users/anton/CLionProjects/Raycaster/maps/Test_map.txt");
+    #ifdef _WIN32
+        map_info_t* map = loadMap("C:/Users/anton/CLionProjects/Raycaster/maps/Test_map.txt");
+    #else
+        map_info_t* map = loadMap("/mnt/c/Users/anton/CLionProjects/Raycaster/maps/Test_map.txt");
+    #endif
     if (map == NULL) {
         printf("%s",get_error_message());
         free_textures_buffer(textures);
@@ -450,7 +471,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    SDL_Texture *lowResTexture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_TARGET, RENDER_WIDTH, RENDER_HEIGHT);
+    SDL_Texture *lowResTexture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_STREAMING, RENDER_WIDTH, RENDER_HEIGHT);
 
     SDL_Event event = {};
 
@@ -482,21 +503,11 @@ int main(int argc, char *argv[]) {
         calculate_floor_and_ceiling(h,&player,map,textures,buff);
         calculate_walls(h, &player,map, textures,  buff);
 
-        SDL_SetRenderTarget(renderer, lowResTexture);
-
-        for (int x = 0; x < RENDER_WIDTH; x++) {
-            for (int y = 0; y < RENDER_HEIGHT; y++) {
-                const uint32_t color = buff[y * RENDER_WIDTH + x];
-                SDL_SetRenderDrawColor(renderer, (color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF, 255);
-                SDL_RenderDrawPoint(renderer, x, y);
-            }
-        }
-
-        SDL_SetRenderTarget(renderer, NULL);
+        SDL_UpdateTexture(lowResTexture, NULL, buff, RENDER_WIDTH * sizeof(Uint32));
 
         SDL_RenderClear(renderer);
 
-        SDL_Rect destRect = {0,0,SCREEN_WIDTH,SCREEN_HEIGHT};
+        SDL_Rect destRect = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
         SDL_RenderCopy(renderer, lowResTexture, NULL, &destRect);
 
         SDL_RenderPresent(renderer);
