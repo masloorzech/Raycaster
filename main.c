@@ -148,8 +148,24 @@ int load_assets(Uint32** textures) {
         "../assets/textures/WOOD_1C.PNG",
         "../assets/textures/BRICK_2B.PNG",
         "../assets/textures/BRICK_1A.PNG",
-        "../assets/textures/greystone.PNG"
-    };
+        "../assets/textures/greystone.PNG",
+        "../assets/textures/BRICK_1A.PNG",
+        "../assets/textures/BRICK_2B.PNG",
+        "../assets/textures/BRICK_3B.PNG",
+        "../assets/textures/BRICK_3D.PNG",
+        "../assets/textures/BRICK_4A.PNG",
+        "../assets/textures/BRICK_6D.PNG",
+        "../assets/textures/DIRT_1A.PNG",
+        "../assets/textures/DOOR_1C.PNG",
+        "../assets/textures/DOORTRIM_1A.PNG",
+        "../assets/textures/greystone.png",
+        "../assets/textures/LAB_2B.PNG",
+        "../assets/textures/PAPER_1F.PNG",
+        "../assets/textures/SLUDGE_1A.PNG",
+        "../assets/textures/TECH_3B.PNG",
+        "../assets/textures/wood.png",
+        "../assets/textures/WOOD_1C.PNG",
+};
 #else
     const char* file_paths[TEXTURES_NUMBER] = {
         "assets/textures/WOOD_1C.PNG",

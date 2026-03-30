@@ -61,6 +61,7 @@ map_info_t* loadMap(const char* filename) {
                 free(map);
                 fclose(file);
                 errorValue = ERROR_READING_TILES;
+                printf("Error reading row: %d, col: %d\n", y, x );
                 return NULL;
             }
             map->value_map[x][y] = (tile)value;
